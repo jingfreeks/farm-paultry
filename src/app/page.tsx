@@ -13,10 +13,12 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Cart from "@/components/Cart";
 import AuthModal from "@/components/AuthModal";
+import Checkout from "@/components/Checkout";
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   return (
     <AuthProvider>
@@ -38,12 +40,18 @@ export default function Home() {
           <Footer />
           
           {/* Cart Drawer */}
-          <Cart />
+          <Cart onCheckout={() => setCheckoutOpen(true)} />
           
           {/* Auth Modal */}
           <AuthModal 
             isOpen={authModalOpen} 
             onClose={() => setAuthModalOpen(false)} 
+          />
+          
+          {/* Checkout Modal */}
+          <Checkout
+            isOpen={checkoutOpen}
+            onClose={() => setCheckoutOpen(false)}
           />
         </div>
       </CartProvider>
