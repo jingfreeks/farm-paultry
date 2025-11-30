@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Products from '@/components/Products';
 import { CartProvider } from '@/context/CartContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 // Mock Supabase client
 jest.mock('@/lib/supabase/client', () => ({
@@ -12,30 +13,38 @@ jest.mock('@/lib/supabase/client', () => ({
         }),
       }),
     }),
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
   }),
 }));
 
-// Helper to render with CartProvider
-const renderWithCart = (component: React.ReactElement) => {
-  return render(<CartProvider>{component}</CartProvider>);
+// Helper to render with providers
+const renderWithProviders = (component: React.ReactElement) => {
+  return render(
+    <AuthProvider>
+      <CartProvider>{component}</CartProvider>
+    </AuthProvider>
+  );
 };
 
 describe('Products', () => {
   it('renders the section heading', () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     expect(screen.getByText('Our Products')).toBeInTheDocument();
     expect(screen.getByText('Fresh From the Farm')).toBeInTheDocument();
   });
 
   it('renders the description text', () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     expect(screen.getByText(/Discover our selection of premium poultry/i)).toBeInTheDocument();
   });
 
   it('renders category filter buttons', () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     expect(screen.getByRole('button', { name: /^all$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^poultry$/i })).toBeInTheDocument();
@@ -44,7 +53,7 @@ describe('Products', () => {
   });
 
   it('renders all products by default', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
@@ -54,7 +63,7 @@ describe('Products', () => {
   });
 
   it('filters products when category is clicked', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
@@ -75,7 +84,7 @@ describe('Products', () => {
   });
 
   it('filters to eggs only when Eggs is clicked', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
@@ -91,7 +100,7 @@ describe('Products', () => {
   });
 
   it('filters to produce only when Produce is clicked', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Organic Corn')).toBeInTheDocument();
@@ -107,7 +116,7 @@ describe('Products', () => {
   });
 
   it('shows all products when All is clicked after filtering', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
@@ -130,7 +139,7 @@ describe('Products', () => {
   });
 
   it('renders product prices', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('$12.99')).toBeInTheDocument(); // Whole Chicken
@@ -139,7 +148,7 @@ describe('Products', () => {
   });
 
   it('renders product badges', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Best Seller')).toBeInTheDocument();
@@ -149,13 +158,13 @@ describe('Products', () => {
   });
 
   it('renders the View All Products button', () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     expect(screen.getByRole('button', { name: /view all products/i })).toBeInTheDocument();
   });
 
   it('renders add to cart buttons for each product', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       // There should be add to cart buttons for each product
@@ -165,7 +174,7 @@ describe('Products', () => {
   });
 
   it('shows added feedback when add to cart is clicked', async () => {
-    renderWithCart(<Products />);
+    renderWithProviders(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Whole Chicken')).toBeInTheDocument();

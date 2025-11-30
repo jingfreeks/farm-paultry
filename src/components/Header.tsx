@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 interface HeaderProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
+  onOpenAuth: () => void;
 }
 
 const navigation = [
@@ -15,8 +18,36 @@ const navigation = [
   { name: "Contact", href: "#contact" },
 ];
 
-export default function Header({ mobileMenuOpen, setMobileMenuOpen }: HeaderProps) {
+export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }: HeaderProps) {
   const { toggleCart, totalItems } = useCart();
+  const { user, loading, signOut } = useAuth();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setUserMenuOpen(false);
+  };
+
+  // Get user initials or first letter of email
+  const getUserInitials = () => {
+    if (user?.user_metadata?.full_name) {
+      const names = user.user_metadata.full_name.split(" ");
+      return names.map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+    }
+    return user?.email?.[0].toUpperCase() || "U";
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-cream/90 backdrop-blur-md border-b border-wheat">
@@ -67,15 +98,104 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen }: HeaderProp
               )}
             </button>
 
+            {/* Auth Section */}
+            {!loading && (
+              <>
+                {user ? (
+                  // User Menu
+                  <div className="relative" ref={userMenuRef}>
+                    <button
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center gap-2 p-1 rounded-full hover:bg-wheat transition-colors"
+                    >
+                      <div className="w-9 h-9 bg-olive rounded-full flex items-center justify-center text-cream text-sm font-bold">
+                        {getUserInitials()}
+                      </div>
+                      <svg
+                        className={`w-4 h-4 text-charcoal transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {userMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-wheat overflow-hidden animate-scale-in origin-top-right">
+                        <div className="p-4 border-b border-wheat bg-cream/50">
+                          <p className="font-semibold text-bark truncate">
+                            {user.user_metadata?.full_name || "User"}
+                          </p>
+                          <p className="text-sm text-charcoal/60 truncate">
+                            {user.email}
+                          </p>
+                        </div>
+                        <div className="py-2">
+                          <button
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              // Could navigate to profile page
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            My Profile
+                          </button>
+                          <button
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              // Could navigate to orders page
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            My Orders
+                          </button>
+                        </div>
+                        <div className="py-2 border-t border-wheat">
+                          <button
+                            onClick={handleSignOut}
+                            className="w-full px-4 py-2 text-left text-sm text-terracotta hover:bg-red-50 transition-colors flex items-center gap-3"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Sign Out
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Sign In Button
+                  <button
+                    onClick={onOpenAuth}
+                    className="px-5 py-2 text-sm font-medium text-charcoal hover:text-terracotta transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Sign In
+                  </button>
+                )}
+              </>
+            )}
+
             <Link
               href="#contact"
-              className="ml-4 px-6 py-2.5 bg-terracotta text-cream text-sm font-semibold rounded-full hover:bg-terracotta-dark transition-all duration-200 shadow-lg shadow-terracotta/20 hover:shadow-terracotta/40"
+              className="ml-2 px-6 py-2.5 bg-terracotta text-cream text-sm font-semibold rounded-full hover:bg-terracotta-dark transition-all duration-200 shadow-lg shadow-terracotta/20 hover:shadow-terracotta/40"
             >
               Order Now
             </Link>
           </div>
 
-          {/* Mobile: Cart & Menu Button */}
+          {/* Mobile: Cart, Auth & Menu Button */}
           <div className="flex items-center gap-2 md:hidden">
             {/* Cart Button - Mobile */}
             <button
@@ -91,6 +211,16 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen }: HeaderProp
                 </span>
               )}
             </button>
+
+            {/* User Avatar - Mobile */}
+            {!loading && user && (
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="w-8 h-8 bg-olive rounded-full flex items-center justify-center text-cream text-xs font-bold"
+              >
+                {getUserInitials()}
+              </button>
+            )}
 
             {/* Menu Button */}
             <button
@@ -126,6 +256,54 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen }: HeaderProp
                   {item.name}
                 </Link>
               ))}
+              
+              {/* Auth Button - Mobile */}
+              {!loading && !user && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth();
+                  }}
+                  className="text-base font-medium text-charcoal hover:text-terracotta transition-colors text-left flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Sign In
+                </button>
+              )}
+
+              {/* User Info - Mobile */}
+              {!loading && user && (
+                <div className="pt-4 border-t border-wheat">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream font-bold">
+                      {getUserInitials()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-bark">
+                        {user.user_metadata?.full_name || "User"}
+                      </p>
+                      <p className="text-sm text-charcoal/60 truncate max-w-[200px]">
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-base font-medium text-terracotta hover:text-terracotta-dark transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              )}
+              
               <Link
                 href="#contact"
                 className="mt-2 px-6 py-3 bg-terracotta text-cream text-center font-semibold rounded-full"
@@ -133,6 +311,51 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen }: HeaderProp
               >
                 Order Now
               </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile User Dropdown */}
+        {userMenuOpen && user && (
+          <div className="md:hidden absolute right-4 top-20 w-56 bg-white rounded-2xl shadow-xl border border-wheat overflow-hidden animate-scale-in z-50">
+            <div className="p-4 border-b border-wheat bg-cream/50">
+              <p className="font-semibold text-bark truncate">
+                {user.user_metadata?.full_name || "User"}
+              </p>
+              <p className="text-sm text-charcoal/60 truncate">
+                {user.email}
+              </p>
+            </div>
+            <div className="py-2">
+              <button
+                onClick={() => setUserMenuOpen(false)}
+                className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                My Profile
+              </button>
+              <button
+                onClick={() => setUserMenuOpen(false)}
+                className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                My Orders
+              </button>
+            </div>
+            <div className="py-2 border-t border-wheat">
+              <button
+                onClick={handleSignOut}
+                className="w-full px-4 py-2 text-left text-sm text-terracotta hover:bg-red-50 transition-colors flex items-center gap-3"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
             </div>
           </div>
         )}
