@@ -56,6 +56,22 @@ jest.mock('@/components/Cart', () => {
   };
 });
 
+jest.mock('@/components/AuthModal', () => {
+  return function MockAuthModal() {
+    return <div data-testid="auth-modal">AuthModal</div>;
+  };
+});
+
+// Mock Supabase client for auth context
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
+  }),
+}));
+
 describe('Home Page', () => {
   it('renders the header component', () => {
     render(<Home />);
@@ -100,6 +116,11 @@ describe('Home Page', () => {
   it('renders the cart component', () => {
     render(<Home />);
     expect(screen.getByTestId('cart')).toBeInTheDocument();
+  });
+
+  it('renders the auth modal component', () => {
+    render(<Home />);
+    expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
   });
 
   it('renders all sections in the correct order', () => {

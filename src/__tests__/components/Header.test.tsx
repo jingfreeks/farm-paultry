@@ -1,28 +1,56 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import Header from '@/components/Header';
 import { CartProvider } from '@/context/CartContext';
+import { AuthProvider } from '@/context/AuthContext';
 
-// Helper to render with CartProvider
-const renderWithCart = (component: React.ReactElement) => {
-  return render(<CartProvider>{component}</CartProvider>);
+// Mock Supabase client for auth
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
+  }),
+}));
+
+// Helper to render with providers
+const renderWithProviders = (component: React.ReactElement) => {
+  return render(
+    <AuthProvider>
+      <CartProvider>{component}</CartProvider>
+    </AuthProvider>
+  );
 };
 
 describe('Header', () => {
   const mockSetMobileMenuOpen = jest.fn();
+  const mockOnOpenAuth = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('renders the logo and brand name', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen} 
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     expect(screen.getByText('Golden Harvest')).toBeInTheDocument();
     expect(screen.getByText('Farm & Poultry')).toBeInTheDocument();
   });
 
   it('renders navigation links', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     expect(screen.getByRole('link', { name: /home/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /products/i })).toBeInTheDocument();
@@ -31,14 +59,26 @@ describe('Header', () => {
   });
 
   it('renders the Order Now button', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     const orderButtons = screen.getAllByRole('link', { name: /order now/i });
     expect(orderButtons.length).toBeGreaterThan(0);
   });
 
   it('toggles mobile menu when menu button is clicked', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     const menuButton = screen.getByRole('button', { name: /toggle menu/i });
     fireEvent.click(menuButton);
@@ -47,7 +87,13 @@ describe('Header', () => {
   });
 
   it('shows mobile menu when mobileMenuOpen is true', () => {
-    renderWithCart(<Header mobileMenuOpen={true} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={true} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     // Mobile menu should show navigation links in the mobile dropdown
     const homeLinks = screen.getAllByRole('link', { name: /home/i });
@@ -55,7 +101,13 @@ describe('Header', () => {
   });
 
   it('closes mobile menu when a link is clicked', () => {
-    renderWithCart(<Header mobileMenuOpen={true} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={true} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     const homeLinks = screen.getAllByRole('link', { name: /home/i });
     // Click the mobile menu link (second one)
@@ -65,7 +117,13 @@ describe('Header', () => {
   });
 
   it('has correct href for navigation links', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     expect(screen.getByRole('link', { name: /^home$/i })).toHaveAttribute('href', '#home');
     expect(screen.getByRole('link', { name: /^products$/i })).toHaveAttribute('href', '#products');
@@ -74,7 +132,13 @@ describe('Header', () => {
   });
 
   it('renders cart button', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     // Should have cart buttons (desktop and mobile)
     const cartButtons = screen.getAllByRole('button').filter(
@@ -84,7 +148,13 @@ describe('Header', () => {
   });
 
   it('does not show cart count badge when cart is empty', () => {
-    renderWithCart(<Header mobileMenuOpen={false} setMobileMenuOpen={mockSetMobileMenuOpen} />);
+    renderWithProviders(
+      <Header 
+        mobileMenuOpen={false} 
+        setMobileMenuOpen={mockSetMobileMenuOpen}
+        onOpenAuth={mockOnOpenAuth}
+      />
+    );
     
     // Cart count badge should not exist when cart is empty
     expect(screen.queryByText('1')).not.toBeInTheDocument();
