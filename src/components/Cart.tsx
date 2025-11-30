@@ -3,7 +3,11 @@
 import { useCart } from "@/context/CartContext";
 import { useEffect } from "react";
 
-export default function Cart() {
+interface CartProps {
+  onCheckout: () => void;
+}
+
+export default function Cart({ onCheckout }: CartProps) {
   const {
     items,
     isOpen,
@@ -35,6 +39,11 @@ export default function Cart() {
       document.body.style.overflow = "unset";
     };
   }, [isOpen]);
+
+  const handleProceedToCheckout = () => {
+    closeCart();
+    onCheckout();
+  };
 
   return (
     <>
@@ -188,13 +197,13 @@ export default function Cart() {
               </div>
 
               <button
-                onClick={() => {
-                  // Handle checkout
-                  alert("Checkout functionality coming soon!");
-                }}
-                className="w-full py-4 bg-terracotta text-cream font-semibold rounded-full hover:bg-terracotta-dark transition-colors shadow-lg shadow-terracotta/30"
+                onClick={handleProceedToCheckout}
+                className="w-full py-4 bg-terracotta text-cream font-semibold rounded-full hover:bg-terracotta-dark transition-colors shadow-lg shadow-terracotta/30 flex items-center justify-center gap-2"
               >
-                Proceed to Checkout
+                <span>Proceed to Checkout</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
               </button>
 
               <p className="text-center text-xs text-charcoal/50 mt-4">
@@ -207,4 +216,3 @@ export default function Cart() {
     </>
   );
 }
-

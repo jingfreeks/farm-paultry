@@ -62,6 +62,12 @@ jest.mock('@/components/AuthModal', () => {
   };
 });
 
+jest.mock('@/components/Checkout', () => {
+  return function MockCheckout() {
+    return <div data-testid="checkout">Checkout</div>;
+  };
+});
+
 // Mock Supabase client for auth context
 jest.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -121,6 +127,11 @@ describe('Home Page', () => {
   it('renders the auth modal component', () => {
     render(<Home />);
     expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
+  });
+
+  it('renders the checkout component', () => {
+    render(<Home />);
+    expect(screen.getByTestId('checkout')).toBeInTheDocument();
   });
 
   it('renders all sections in the correct order', () => {
