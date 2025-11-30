@@ -50,6 +50,12 @@ jest.mock('@/components/Footer', () => {
   };
 });
 
+jest.mock('@/components/Cart', () => {
+  return function MockCart() {
+    return <div data-testid="cart">Cart</div>;
+  };
+});
+
 describe('Home Page', () => {
   it('renders the header component', () => {
     render(<Home />);
@@ -91,6 +97,11 @@ describe('Home Page', () => {
     expect(screen.getByTestId('footer')).toBeInTheDocument();
   });
 
+  it('renders the cart component', () => {
+    render(<Home />);
+    expect(screen.getByTestId('cart')).toBeInTheDocument();
+  });
+
   it('renders all sections in the correct order', () => {
     render(<Home />);
     
@@ -105,4 +116,3 @@ describe('Home Page', () => {
     expect(sections[5]).toHaveAttribute('data-testid', 'contact');
   });
 });
-

@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Products from '@/components/Products';
+import { CartProvider } from '@/context/CartContext';
 
 // Mock Supabase client
 jest.mock('@/lib/supabase/client', () => ({
@@ -14,22 +15,27 @@ jest.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
+// Helper to render with CartProvider
+const renderWithCart = (component: React.ReactElement) => {
+  return render(<CartProvider>{component}</CartProvider>);
+};
+
 describe('Products', () => {
   it('renders the section heading', () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     expect(screen.getByText('Our Products')).toBeInTheDocument();
     expect(screen.getByText('Fresh From the Farm')).toBeInTheDocument();
   });
 
   it('renders the description text', () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     expect(screen.getByText(/Discover our selection of premium poultry/i)).toBeInTheDocument();
   });
 
   it('renders category filter buttons', () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     expect(screen.getByRole('button', { name: /^all$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^poultry$/i })).toBeInTheDocument();
@@ -38,7 +44,7 @@ describe('Products', () => {
   });
 
   it('renders all products by default', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
@@ -48,7 +54,7 @@ describe('Products', () => {
   });
 
   it('filters products when category is clicked', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
@@ -69,7 +75,7 @@ describe('Products', () => {
   });
 
   it('filters to eggs only when Eggs is clicked', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
@@ -85,7 +91,7 @@ describe('Products', () => {
   });
 
   it('filters to produce only when Produce is clicked', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Organic Corn')).toBeInTheDocument();
@@ -101,7 +107,7 @@ describe('Products', () => {
   });
 
   it('shows all products when All is clicked after filtering', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
@@ -124,7 +130,7 @@ describe('Products', () => {
   });
 
   it('renders product prices', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('$12.99')).toBeInTheDocument(); // Whole Chicken
@@ -133,7 +139,7 @@ describe('Products', () => {
   });
 
   it('renders product badges', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
       expect(screen.getByText('Best Seller')).toBeInTheDocument();
@@ -143,20 +149,33 @@ describe('Products', () => {
   });
 
   it('renders the View All Products button', () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     expect(screen.getByRole('button', { name: /view all products/i })).toBeInTheDocument();
   });
 
   it('renders add to cart buttons for each product', async () => {
-    render(<Products />);
+    renderWithCart(<Products />);
     
     await waitFor(() => {
-      // There should be multiple add buttons (one per product)
-      const addButtons = screen.getAllByRole('button').filter(
-        btn => btn.querySelector('svg')
-      );
-      expect(addButtons.length).toBeGreaterThan(0);
+      // There should be add to cart buttons for each product
+      const addButtons = screen.getAllByRole('button', { name: /add .* to cart/i });
+      expect(addButtons.length).toBe(8); // 8 static products
+    });
+  });
+
+  it('shows added feedback when add to cart is clicked', async () => {
+    renderWithCart(<Products />);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
+    });
+
+    const addButton = screen.getByRole('button', { name: /add whole chicken to cart/i });
+    fireEvent.click(addButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Added to cart!')).toBeInTheDocument();
     });
   });
 });

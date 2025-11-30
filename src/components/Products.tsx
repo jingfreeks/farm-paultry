@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useCart } from "@/context/CartContext";
 import type { Product } from "@/types/database";
 
 const categories = ["All", "Poultry", "Eggs", "Produce"];
 
 // Fallback static products (used when Supabase is not configured)
-const staticProducts = [
+const staticProducts: Product[] = [
   {
     id: "1",
     name: "Whole Chicken",
@@ -143,6 +144,8 @@ export default function Products() {
   const [products, setProducts] = useState<Product[]>(staticProducts);
   const [loading, setLoading] = useState(true);
   const [useSupabase, setUseSupabase] = useState(true);
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
+  const { addItem } = useCart();
 
   useEffect(() => {
     async function fetchProducts() {
@@ -188,6 +191,16 @@ export default function Products() {
     : activeCategory === "All" 
       ? staticProducts 
       : staticProducts.filter(p => p.category === activeCategory.toLowerCase());
+
+  const handleAddToCart = (product: Product) => {
+    addItem(product);
+    setAddedProductId(product.id);
+    
+    // Reset the animation after a short delay
+    setTimeout(() => {
+      setAddedProductId(null);
+    }, 1000);
+  };
 
   return (
     <section id="products" className="py-24 bg-white relative">
@@ -254,6 +267,18 @@ export default function Products() {
                   <div className="w-full aspect-square bg-gradient-to-br from-wheat to-cream rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
                     <span className="text-7xl">{product.emoji}</span>
                   </div>
+                  
+                  {/* Added to cart animation overlay */}
+                  {addedProductId === product.id && (
+                    <div className="absolute inset-0 bg-olive/90 rounded-2xl flex items-center justify-center animate-scale-in">
+                      <div className="text-center text-cream">
+                        <svg className="w-10 h-10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <p className="font-semibold text-sm">Added to cart!</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Product Info */}
@@ -278,7 +303,14 @@ export default function Products() {
                         {product.unit}
                       </span>
                     </div>
-                    <button className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream hover:bg-olive-dark transition-colors shadow-lg shadow-olive/30">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToCart(product);
+                      }}
+                      className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream hover:bg-terracotta transition-colors shadow-lg shadow-olive/30 active:scale-95"
+                      aria-label={`Add ${product.name} to cart`}
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
