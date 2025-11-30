@@ -1,5 +1,18 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Products from '@/components/Products';
+
+// Mock Supabase client
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          order: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
 
 describe('Products', () => {
   it('renders the section heading', () => {
@@ -24,75 +37,109 @@ describe('Products', () => {
     expect(screen.getByRole('button', { name: /^produce$/i })).toBeInTheDocument();
   });
 
-  it('renders all products by default', () => {
+  it('renders all products by default', async () => {
     render(<Products />);
     
-    expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
-    expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
-    expect(screen.getByText('Organic Corn')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
+      expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
+      expect(screen.getByText('Organic Corn')).toBeInTheDocument();
+    });
   });
 
-  it('filters products when category is clicked', () => {
+  it('filters products when category is clicked', async () => {
     render(<Products />);
     
+    await waitFor(() => {
+      expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
+    });
+
     // Click on Poultry filter
     fireEvent.click(screen.getByRole('button', { name: /^poultry$/i }));
     
-    // Should show poultry products
-    expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
-    expect(screen.getByText('Chicken Breast')).toBeInTheDocument();
-    
-    // Should not show non-poultry products
-    expect(screen.queryByText('Farm Fresh Eggs')).not.toBeInTheDocument();
-    expect(screen.queryByText('Organic Corn')).not.toBeInTheDocument();
+    await waitFor(() => {
+      // Should show poultry products
+      expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
+      expect(screen.getByText('Chicken Breast')).toBeInTheDocument();
+      
+      // Should not show non-poultry products
+      expect(screen.queryByText('Farm Fresh Eggs')).not.toBeInTheDocument();
+      expect(screen.queryByText('Organic Corn')).not.toBeInTheDocument();
+    });
   });
 
-  it('filters to eggs only when Eggs is clicked', () => {
+  it('filters to eggs only when Eggs is clicked', async () => {
     render(<Products />);
     
+    await waitFor(() => {
+      expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /^eggs$/i }));
     
-    expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
-    expect(screen.getByText('Duck Eggs')).toBeInTheDocument();
-    expect(screen.queryByText('Whole Chicken')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
+      expect(screen.getByText('Duck Eggs')).toBeInTheDocument();
+      expect(screen.queryByText('Whole Chicken')).not.toBeInTheDocument();
+    });
   });
 
-  it('filters to produce only when Produce is clicked', () => {
+  it('filters to produce only when Produce is clicked', async () => {
     render(<Products />);
     
+    await waitFor(() => {
+      expect(screen.getByText('Organic Corn')).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /^produce$/i }));
     
-    expect(screen.getByText('Organic Corn')).toBeInTheDocument();
-    expect(screen.getByText('Fresh Vegetables Box')).toBeInTheDocument();
-    expect(screen.queryByText('Whole Chicken')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Organic Corn')).toBeInTheDocument();
+      expect(screen.getByText('Fresh Vegetables Box')).toBeInTheDocument();
+      expect(screen.queryByText('Whole Chicken')).not.toBeInTheDocument();
+    });
   });
 
-  it('shows all products when All is clicked after filtering', () => {
+  it('shows all products when All is clicked after filtering', async () => {
     render(<Products />);
     
+    await waitFor(() => {
+      expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
+    });
+
     // First filter to Poultry
     fireEvent.click(screen.getByRole('button', { name: /^poultry$/i }));
-    expect(screen.queryByText('Farm Fresh Eggs')).not.toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(screen.queryByText('Farm Fresh Eggs')).not.toBeInTheDocument();
+    });
     
     // Then click All
     fireEvent.click(screen.getByRole('button', { name: /^all$/i }));
-    expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
-    expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(screen.getByText('Farm Fresh Eggs')).toBeInTheDocument();
+      expect(screen.getByText('Whole Chicken')).toBeInTheDocument();
+    });
   });
 
-  it('renders product prices', () => {
+  it('renders product prices', async () => {
     render(<Products />);
     
-    expect(screen.getByText('$12.99')).toBeInTheDocument(); // Whole Chicken
-    expect(screen.getByText('$6.99')).toBeInTheDocument();  // Farm Fresh Eggs
+    await waitFor(() => {
+      expect(screen.getByText('$12.99')).toBeInTheDocument(); // Whole Chicken
+      expect(screen.getByText('$6.99')).toBeInTheDocument();  // Farm Fresh Eggs
+    });
   });
 
-  it('renders product badges', () => {
+  it('renders product badges', async () => {
     render(<Products />);
     
-    expect(screen.getByText('Best Seller')).toBeInTheDocument();
-    expect(screen.getByText('Organic')).toBeInTheDocument();
-    expect(screen.getByText('Premium')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Best Seller')).toBeInTheDocument();
+      expect(screen.getByText('Organic')).toBeInTheDocument();
+      expect(screen.getByText('Premium')).toBeInTheDocument();
+    });
   });
 
   it('renders the View All Products button', () => {
@@ -101,14 +148,15 @@ describe('Products', () => {
     expect(screen.getByRole('button', { name: /view all products/i })).toBeInTheDocument();
   });
 
-  it('renders add to cart buttons for each product', () => {
+  it('renders add to cart buttons for each product', async () => {
     render(<Products />);
     
-    // There should be multiple add buttons (one per product)
-    const addButtons = screen.getAllByRole('button').filter(
-      btn => btn.querySelector('svg')
-    );
-    expect(addButtons.length).toBeGreaterThan(0);
+    await waitFor(() => {
+      // There should be multiple add buttons (one per product)
+      const addButtons = screen.getAllByRole('button').filter(
+        btn => btn.querySelector('svg')
+      );
+      expect(addButtons.length).toBeGreaterThan(0);
+    });
   });
 });
-
