@@ -2,16 +2,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Contact from '@/components/Contact';
 
+// Mock Supabase client
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    from: () => ({
+      insert: () => Promise.resolve({ data: null, error: null }),
+    }),
+  }),
+}));
+
 describe('Contact', () => {
-  beforeEach(() => {
-    jest.spyOn(window, 'alert').mockImplementation(() => {});
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   it('renders the section heading', () => {
     render(<Contact />);
     
@@ -85,7 +85,7 @@ describe('Contact', () => {
     expect(messageInput).toHaveValue('I would like to order some fresh eggs.');
   });
 
-  it('submits the form and shows alert', async () => {
+  it('submits the form and shows success message', async () => {
     const user = userEvent.setup();
     render(<Contact />);
     
@@ -100,7 +100,9 @@ describe('Contact', () => {
     
     await user.click(submitButton);
     
-    expect(window.alert).toHaveBeenCalledWith("Thank you for your message! We'll get back to you soon.");
+    await waitFor(() => {
+      expect(screen.getByText(/Thank you for your message/i)).toBeInTheDocument();
+    });
   });
 
   it('clears the form after submission', async () => {
@@ -132,4 +134,3 @@ describe('Contact', () => {
     expect(section).toHaveAttribute('id', 'contact');
   });
 });
-
