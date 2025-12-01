@@ -133,18 +133,16 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
                           </p>
                         </div>
                         <div className="py-2">
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              // Could navigate to profile page
-                            }}
+                          <Link
+                            href="/profile"
+                            onClick={() => setUserMenuOpen(false)}
                             className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                             My Profile
-                          </button>
+                          </Link>
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
@@ -327,7 +325,8 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
               </p>
             </div>
             <div className="py-2">
-              <button
+              <Link
+                href="/profile"
                 onClick={() => setUserMenuOpen(false)}
                 className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
               >
@@ -335,7 +334,7 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 My Profile
-              </button>
+              </Link>
               <button
                 onClick={() => setUserMenuOpen(false)}
                 className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
