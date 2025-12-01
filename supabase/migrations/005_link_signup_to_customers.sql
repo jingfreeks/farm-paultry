@@ -42,7 +42,8 @@ VALUES ('machinehead992003@yahoo.com', NULL)
 ON CONFLICT (email) DO UPDATE
 SET updated_at = NOW();
 
--- Allow users to insert their own customer record
+-- Allow users to insert their own customer record (for edge cases)
+-- Note: The trigger handles most cases, but this allows manual inserts if needed
 CREATE POLICY "Users can insert own customer" ON customers
   FOR INSERT WITH CHECK (email = auth.jwt()->>'email');
 
@@ -50,4 +51,8 @@ CREATE POLICY "Users can insert own customer" ON customers
 CREATE POLICY "Users can update own customer" ON customers
   FOR UPDATE USING (email = auth.jwt()->>'email')
   WITH CHECK (email = auth.jwt()->>'email');
+
+-- Allow users to view their own customer record
+CREATE POLICY "Users can view own customer" ON customers
+  FOR SELECT USING (email = auth.jwt()->>'email');
 
