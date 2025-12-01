@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -9,13 +10,41 @@ export default function Contact() {
     phone: "",
     message: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log("Form submitted:", formData);
-    alert("Thank you for your message! We'll get back to you soon.");
-    setFormData({ name: "", email: "", phone: "", message: "" });
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      // Check if Supabase is configured
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        const supabase = createClient();
+        
+        const { error: submitError } = await supabase
+          .from('contact_submissions')
+          .insert([{
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone || null,
+            message: formData.message,
+          }]);
+        
+        if (submitError) throw submitError;
+      }
+
+      setSuccess(true);
+      setFormData({ name: "", email: "", phone: "", message: "" });
+    } catch (err) {
+      console.error('Form submission error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit form. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -119,6 +148,20 @@ export default function Contact() {
           <div className="bg-cream rounded-3xl p-8 md:p-10 shadow-2xl">
             <h3 className="font-serif text-2xl font-bold text-bark mb-6">Send us a Message</h3>
             
+            {/* Success Message */}
+            {success && (
+              <div className="mb-6 p-4 bg-olive/10 border border-olive/20 rounded-xl">
+                <p className="text-olive font-medium">Thank you for your message! We'll get back to you soon.</p>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-terracotta/10 border border-terracotta/20 rounded-xl">
+                <p className="text-terracotta font-medium">{error}</p>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-charcoal mb-2">
@@ -132,6 +175,7 @@ export default function Contact() {
                   className="w-full px-4 py-3 bg-wheat rounded-xl border border-charcoal/10 focus:outline-none focus:ring-2 focus:ring-terracotta/50 focus:border-terracotta transition-all"
                   placeholder="John Doe"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -148,6 +192,7 @@ export default function Contact() {
                     className="w-full px-4 py-3 bg-wheat rounded-xl border border-charcoal/10 focus:outline-none focus:ring-2 focus:ring-terracotta/50 focus:border-terracotta transition-all"
                     placeholder="john@example.com"
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div>
@@ -161,6 +206,7 @@ export default function Contact() {
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-3 bg-wheat rounded-xl border border-charcoal/10 focus:outline-none focus:ring-2 focus:ring-terracotta/50 focus:border-terracotta transition-all"
                     placeholder="(555) 123-4567"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -177,17 +223,28 @@ export default function Contact() {
                   className="w-full px-4 py-3 bg-wheat rounded-xl border border-charcoal/10 focus:outline-none focus:ring-2 focus:ring-terracotta/50 focus:border-terracotta transition-all resize-none"
                   placeholder="Tell us how we can help you..."
                   required
+                  disabled={loading}
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-4 bg-terracotta text-cream font-semibold rounded-xl hover:bg-terracotta-dark transition-all duration-300 shadow-lg shadow-terracotta/30 hover:shadow-terracotta/50 flex items-center justify-center gap-2"
+                disabled={loading}
+                className="w-full py-4 bg-terracotta text-cream font-semibold rounded-xl hover:bg-terracotta-dark transition-all duration-300 shadow-lg shadow-terracotta/30 hover:shadow-terracotta/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Send Message
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-cream border-t-transparent rounded-full animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    Send Message
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -196,4 +253,3 @@ export default function Contact() {
     </section>
   );
 }
-

@@ -50,6 +50,34 @@ jest.mock('@/components/Footer', () => {
   };
 });
 
+jest.mock('@/components/Cart', () => {
+  return function MockCart() {
+    return <div data-testid="cart">Cart</div>;
+  };
+});
+
+jest.mock('@/components/AuthModal', () => {
+  return function MockAuthModal() {
+    return <div data-testid="auth-modal">AuthModal</div>;
+  };
+});
+
+jest.mock('@/components/Checkout', () => {
+  return function MockCheckout() {
+    return <div data-testid="checkout">Checkout</div>;
+  };
+});
+
+// Mock Supabase client for auth context
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
+  }),
+}));
+
 describe('Home Page', () => {
   it('renders the header component', () => {
     render(<Home />);
@@ -91,6 +119,21 @@ describe('Home Page', () => {
     expect(screen.getByTestId('footer')).toBeInTheDocument();
   });
 
+  it('renders the cart component', () => {
+    render(<Home />);
+    expect(screen.getByTestId('cart')).toBeInTheDocument();
+  });
+
+  it('renders the auth modal component', () => {
+    render(<Home />);
+    expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
+  });
+
+  it('renders the checkout component', () => {
+    render(<Home />);
+    expect(screen.getByTestId('checkout')).toBeInTheDocument();
+  });
+
   it('renders all sections in the correct order', () => {
     render(<Home />);
     
@@ -105,4 +148,3 @@ describe('Home Page', () => {
     expect(sections[5]).toHaveAttribute('data-testid', 'contact');
   });
 });
-
