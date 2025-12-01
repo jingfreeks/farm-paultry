@@ -38,23 +38,46 @@ export function useAdminUsers() {
       setLoading(true);
       setError(null);
 
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      // Check if Supabase is configured
+      const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!hasSupabaseConfig) {
+        // Demo mode - use demo users
         setUsers(demoUsers);
         setLoading(false);
         return;
       }
 
+      // Try to fetch from Supabase
       const supabase = createClient();
       const { data, error: fetchError } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-      setUsers(data || demoUsers);
+      if (fetchError) {
+        // If table doesn't exist or RLS blocks access, use demo users
+        console.warn('Failed to fetch users from Supabase, using demo data:', fetchError.message);
+        setUsers(demoUsers);
+        setError(`Unable to fetch users: ${fetchError.message}. Showing demo data.`);
+        setLoading(false);
+        return;
+      }
+
+      // If we got data, use it; otherwise fallback to demo
+      if (data && data.length > 0) {
+        setUsers(data);
+        setError(null);
+      } else {
+        // No users found, use demo data
+        setUsers(demoUsers);
+        setError('No users found. Showing demo data.');
+      }
     } catch (err) {
       console.error('Fetch users error:', err);
+      // Always fallback to demo users on error
       setUsers(demoUsers);
+      setError(err instanceof Error ? `Error: ${err.message}. Showing demo data.` : 'Failed to fetch users. Showing demo data.');
     } finally {
       setLoading(false);
     }

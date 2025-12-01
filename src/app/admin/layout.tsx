@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AuthProvider } from "@/context/AuthContext";
-import { useIsAdmin } from "@/hooks/useAdminUsers";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import AdminLogin from "@/components/AdminLogin";
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: "dashboard" },
@@ -42,24 +42,33 @@ const icons: Record<string, JSX.Element> = {
   ),
 };
 
-function AdminContent({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const { isAdmin, loading, userProfile } = useIsAdmin();
+  const { isAuthenticated, isAdmin, loading, userProfile, checkAuth, logout } = useAdminAuth();
 
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-wheat/30 flex items-center justify-center">
+      <div className="min-h-screen bg-bark flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-terracotta border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-charcoal/60">Checking access...</p>
+          <div className="w-12 h-12 border-4 border-cream border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-cream/70">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Access denied
+  // Not authenticated - show login
+  if (!isAuthenticated) {
+    return <AdminLogin onLoginSuccess={checkAuth} />;
+  }
+
+  // Authenticated but not admin - show access denied
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-wheat/30 flex items-center justify-center p-4">
@@ -71,17 +80,22 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           </div>
           <h1 className="font-serif text-2xl font-bold text-bark mb-2">Access Denied</h1>
           <p className="text-charcoal/60 mb-6">
-            You don&apos;t have permission to access the admin dashboard. Please contact an administrator if you believe this is an error.
+            Your account doesn&apos;t have admin privileges. Please contact an administrator.
           </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-terracotta text-cream rounded-xl font-medium hover:bg-terracotta-dark transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Home
-          </Link>
+          <div className="flex gap-3">
+            <button
+              onClick={logout}
+              className="flex-1 px-4 py-2 bg-wheat text-charcoal rounded-xl font-medium hover:bg-wheat/70 transition-colors"
+            >
+              Sign Out
+            </button>
+            <Link
+              href="/"
+              className="flex-1 px-4 py-2 bg-terracotta text-cream rounded-xl font-medium hover:bg-terracotta-dark transition-colors text-center"
+            >
+              Go Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -158,8 +172,8 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Back to site */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
+        {/* Bottom Actions */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 space-y-2">
           <Link
             href="/"
             className="flex items-center gap-3 px-4 py-3 text-cream/70 hover:text-cream transition-colors"
@@ -169,6 +183,15 @@ function AdminContent({ children }: { children: React.ReactNode }) {
             </svg>
             <span className="font-medium">Back to Site</span>
           </Link>
+          <button
+            onClick={logout}
+            className="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 transition-colors w-full"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="font-medium">Sign Out</span>
+          </button>
         </div>
       </aside>
 
@@ -187,7 +210,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
               </svg>
             </button>
 
-            {/* Page title - filled by page */}
+            {/* Page title placeholder */}
             <div className="hidden lg:block" />
 
             {/* Right side */}
@@ -198,8 +221,14 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                 </svg>
                 <span className="absolute top-1 right-1 w-2 h-2 bg-terracotta rounded-full" />
               </button>
-              <div className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream font-bold">
-                {userProfile?.full_name?.charAt(0) || 'A'}
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream font-bold">
+                  {userProfile?.full_name?.charAt(0) || 'A'}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-bark">{userProfile?.full_name || 'Admin'}</p>
+                  <p className="text-xs text-charcoal/60">{userProfile?.email}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -209,17 +238,5 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         <main className="p-6">{children}</main>
       </div>
     </div>
-  );
-}
-
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <AuthProvider>
-      <AdminContent>{children}</AdminContent>
-    </AuthProvider>
   );
 }
