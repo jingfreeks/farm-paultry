@@ -106,30 +106,43 @@ CREATE POLICY "Admins can delete profiles" ON user_profiles
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Create user profile
-  INSERT INTO user_profiles (id, email, full_name, role)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    NEW.raw_user_meta_data->>'full_name',
-    'customer' -- Default role is customer
-  )
-  ON CONFLICT (id) DO UPDATE
-  SET 
-    email = EXCLUDED.email,
-    full_name = COALESCE(EXCLUDED.full_name, user_profiles.full_name),
-    updated_at = NOW();
+  -- Create user profile (with error handling)
+  BEGIN
+    INSERT INTO user_profiles (id, email, full_name, role)
+    VALUES (
+      NEW.id,
+      COALESCE(NEW.email, ''),
+      NEW.raw_user_meta_data->>'full_name',
+      'customer' -- Default role is customer
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET 
+      email = COALESCE(EXCLUDED.email, user_profiles.email),
+      full_name = COALESCE(EXCLUDED.full_name, user_profiles.full_name),
+      updated_at = NOW();
+  EXCEPTION WHEN OTHERS THEN
+    -- Log error but don't fail user creation
+    RAISE WARNING 'Error creating user_profile: %', SQLERRM;
+  END;
 
   -- Create customer record (upsert to handle existing emails)
-  INSERT INTO customers (email, full_name)
-  VALUES (
-    NEW.email,
-    NEW.raw_user_meta_data->>'full_name'
-  )
-  ON CONFLICT (email) DO UPDATE
-  SET 
-    full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
-    updated_at = NOW();
+  -- Only if customers table exists and email is not null
+  IF NEW.email IS NOT NULL THEN
+    BEGIN
+      INSERT INTO customers (email, full_name)
+      VALUES (
+        NEW.email,
+        NEW.raw_user_meta_data->>'full_name'
+      )
+      ON CONFLICT (email) DO UPDATE
+      SET 
+        full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
+        updated_at = NOW();
+    EXCEPTION WHEN OTHERS THEN
+      -- Log error but don't fail user creation
+      RAISE WARNING 'Error creating customer record: %', SQLERRM;
+    END;
+  END IF;
 
   RETURN NEW;
 END;
