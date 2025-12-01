@@ -60,9 +60,12 @@ DROP POLICY IF EXISTS "Admins can delete profiles" ON user_profiles;
 CREATE POLICY "Users can view own profile" ON user_profiles
   FOR SELECT USING (auth.uid() = id);
 
--- Users can update their own profile (except role)
+-- Users can update their own profile (all fields except role and id)
+-- Drop and recreate to ensure it's correct
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
 CREATE POLICY "Users can update own profile" ON user_profiles
-  FOR UPDATE USING (auth.uid() = id)
+  FOR UPDATE 
+  USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
 -- Users can insert their own profile
@@ -108,15 +111,24 @@ CREATE POLICY "Admins can delete profiles" ON user_profiles
 -- Function to create profile on user signup
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  user_email TEXT;
+  user_full_name TEXT;
 BEGIN
-  -- Create user profile (with error handling)
+  -- Get email and full_name safely
+  user_email := COALESCE(NEW.email, '');
+  user_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NULL);
+
+  -- Create user profile (with better error handling)
+  -- Use SECURITY DEFINER to bypass RLS
   BEGIN
-    INSERT INTO user_profiles (id, email, full_name, role)
+    INSERT INTO user_profiles (id, email, full_name, role, is_active)
     VALUES (
       NEW.id,
-      COALESCE(NEW.email, ''),
-      NEW.raw_user_meta_data->>'full_name',
-      'customer' -- Default role is customer
+      user_email,
+      user_full_name,
+      'customer',
+      true
     )
     ON CONFLICT (id) DO UPDATE
     SET 
@@ -124,26 +136,31 @@ BEGIN
       full_name = COALESCE(EXCLUDED.full_name, user_profiles.full_name),
       updated_at = NOW();
   EXCEPTION WHEN OTHERS THEN
-    -- Log error but don't fail user creation
-    RAISE WARNING 'Error creating user_profile: %', SQLERRM;
+    -- Log detailed error but don't fail user creation
+    RAISE WARNING 'Error creating user_profile for user %: %', NEW.id, SQLERRM;
+    -- Try to create a minimal profile if the full insert failed
+    BEGIN
+      INSERT INTO user_profiles (id, email, role, is_active)
+      VALUES (NEW.id, user_email, 'customer', true)
+      ON CONFLICT (id) DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Failed to create minimal profile for user %: %', NEW.id, SQLERRM;
+    END;
   END;
 
   -- Create customer record (upsert to handle existing emails)
   -- Only if customers table exists and email is not null
-  IF NEW.email IS NOT NULL THEN
+  IF user_email IS NOT NULL AND user_email != '' THEN
     BEGIN
       INSERT INTO customers (email, full_name)
-      VALUES (
-        NEW.email,
-        NEW.raw_user_meta_data->>'full_name'
-      )
+      VALUES (user_email, user_full_name)
       ON CONFLICT (email) DO UPDATE
       SET 
         full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
         updated_at = NOW();
     EXCEPTION WHEN OTHERS THEN
       -- Log error but don't fail user creation
-      RAISE WARNING 'Error creating customer record: %', SQLERRM;
+      RAISE WARNING 'Error creating customer record for email %: %', user_email, SQLERRM;
     END;
   END IF;
 
@@ -157,11 +174,13 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- Update timestamp trigger
+-- Update timestamp trigger (only fires when data actually changes)
 DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
 CREATE TRIGGER update_user_profiles_updated_at
   BEFORE UPDATE ON user_profiles
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW 
+  WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- Create index for role lookups
 CREATE INDEX IF NOT EXISTS idx_user_profiles_role ON user_profiles(role);
@@ -213,6 +232,24 @@ CREATE POLICY "Users can update own customer" ON customers
 -- Allow users to view their own customer record
 CREATE POLICY "Users can view own customer" ON customers
   FOR SELECT USING (email = auth.jwt()->>'email');
+
+-- ============================================
+-- STEP 4: Create profiles for existing users who don't have one
+-- ============================================
+
+-- This will create profiles for any existing auth users who don't have a profile
+INSERT INTO user_profiles (id, email, full_name, role, is_active)
+SELECT 
+  u.id,
+  COALESCE(u.email, ''),
+  COALESCE(u.raw_user_meta_data->>'full_name', NULL),
+  'customer',
+  true
+FROM auth.users u
+WHERE NOT EXISTS (
+  SELECT 1 FROM user_profiles up WHERE up.id = u.id
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
 -- DONE! Your database is now set up.

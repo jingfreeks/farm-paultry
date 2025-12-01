@@ -143,13 +143,16 @@ export function useUserProfile() {
 
       const supabase = createClient();
       
-      // Update user profile
+      // Update user profile (don't set updated_at manually - trigger handles it)
       const { error: profileError } = await supabase
         .from('user_profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(updates)
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
 
       // Also update auth user metadata if full_name changed
       if (updates.full_name !== undefined) {
@@ -159,16 +162,20 @@ export function useUserProfile() {
         if (authError) console.error('Error updating auth metadata:', authError);
       }
 
-      // Also update customer record
+      // Also update customer record (don't set updated_at manually - trigger handles it)
       if (user.email) {
-        await supabase
+        const { error: customerError } = await supabase
           .from('customers')
           .update({
             full_name: updates.full_name || null,
             phone: updates.phone || null,
-            updated_at: new Date().toISOString(),
           })
           .eq('email', user.email);
+        
+        if (customerError) {
+          console.warn('Customer update error (non-critical):', customerError);
+          // Don't fail the whole update if customer update fails
+        }
       }
 
       await fetchProfile();
