@@ -23,21 +23,21 @@ export default function Home() {
   return (
     <AuthProvider>
       <CartProvider>
-        <div className="min-h-screen bg-cream overflow-x-hidden">
-          <Header 
-            mobileMenuOpen={mobileMenuOpen} 
-            setMobileMenuOpen={setMobileMenuOpen}
+    <div className="min-h-screen bg-cream overflow-x-hidden">
+      <Header 
+        mobileMenuOpen={mobileMenuOpen} 
+        setMobileMenuOpen={setMobileMenuOpen} 
             onOpenAuth={() => setAuthModalOpen(true)}
-          />
-          <main>
-            <Hero />
-            <Products />
-            <About />
-            <Features />
-            <Testimonials />
-            <Contact />
-          </main>
-          <Footer />
+      />
+      <main>
+        <Hero />
+        <Products />
+        <About />
+        <Features />
+        <Testimonials />
+        <Contact />
+      </main>
+      <Footer />
           
           {/* Cart Drawer */}
           <Cart onCheckout={() => setCheckoutOpen(true)} />
@@ -53,7 +53,7 @@ export default function Home() {
             isOpen={checkoutOpen}
             onClose={() => setCheckoutOpen(false)}
           />
-        </div>
+    </div>
       </CartProvider>
     </AuthProvider>
   );
