@@ -155,6 +155,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- Update timestamp trigger
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
 CREATE TRIGGER update_user_profiles_updated_at
   BEFORE UPDATE ON user_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
