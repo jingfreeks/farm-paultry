@@ -231,6 +231,41 @@ export type Database = {
           created_at?: string;
         };
       };
+      user_profiles: {
+        Row: {
+          id: string;
+          email: string;
+          full_name: string | null;
+          phone: string | null;
+          role: 'admin' | 'staff' | 'customer';
+          avatar_url: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          full_name?: string | null;
+          phone?: string | null;
+          role?: 'admin' | 'staff' | 'customer';
+          avatar_url?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          full_name?: string | null;
+          phone?: string | null;
+          role?: 'admin' | 'staff' | 'customer';
+          avatar_url?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -241,6 +276,7 @@ export type Database = {
     Enums: {
       product_category: 'poultry' | 'eggs' | 'produce';
       order_status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+      user_role: 'admin' | 'staff' | 'customer';
     };
   };
 };
@@ -252,4 +288,6 @@ export type Order = Database['public']['Tables']['orders']['Row'];
 export type OrderItem = Database['public']['Tables']['order_items']['Row'];
 export type ContactSubmission = Database['public']['Tables']['contact_submissions']['Row'];
 export type Testimonial = Database['public']['Tables']['testimonials']['Row'];
+export type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
+export type UserRole = Database['public']['Enums']['user_role'];
 
