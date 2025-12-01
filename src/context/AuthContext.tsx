@@ -43,6 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Customer records are created automatically by database triggers
+        // No need to create them client-side
+        
         setLoading(false);
       }
     );
@@ -66,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -75,7 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         },
       });
-      return { error: error as Error | null };
+
+      if (error) {
+        return { error: error as Error };
+      }
+
+      // Customer record will be created automatically by the database trigger
+      // (handle_new_user function in migration 005)
+      // No need to create it client-side as RLS might block it
+      
+      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }

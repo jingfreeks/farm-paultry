@@ -8,9 +8,11 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     
-    if (!error) {
+    if (!error && data.user) {
+      // Customer record will be created automatically by the database trigger
+      // (handle_new_user function) when the user is created
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
