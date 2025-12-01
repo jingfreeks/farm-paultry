@@ -43,6 +43,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // When user signs in, ensure customer record exists
+        if (event === 'SIGNED_IN' && session?.user) {
+          try {
+            const { data: existingCustomer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('email', session.user.email!)
+              .single();
+
+            if (!existingCustomer) {
+              // Create customer record if it doesn't exist
+              await supabase
+                .from('customers')
+                .insert({
+                  email: session.user.email!,
+                  full_name: session.user.user_metadata?.full_name || null,
+                });
+            }
+          } catch (err) {
+            console.error('Error ensuring customer record:', err);
+          }
+        }
+        
         setLoading(false);
       }
     );
@@ -66,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -75,7 +99,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         },
       });
-      return { error: error as Error | null };
+
+      if (error) {
+        return { error: error as Error };
+      }
+
+      // If signup successful, create customer record
+      if (data.user) {
+        try {
+          // Wait a bit for the trigger to create user_profile first
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Create customer record
+          const { error: customerError } = await supabase
+            .from('customers')
+            .insert({
+              email: data.user.email!,
+              full_name: fullName || null,
+            })
+            .select()
+            .single();
+
+          // If customer already exists (upsert), update it
+          if (customerError && customerError.code === '23505') {
+            // Unique constraint violation - customer exists, update it
+            const { error: updateError } = await supabase
+              .from('customers')
+              .update({
+                full_name: fullName || null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('email', email);
+
+            if (updateError) {
+              console.error('Error updating customer:', updateError);
+            }
+          } else if (customerError) {
+            console.error('Error creating customer:', customerError);
+            // Don't fail signup if customer creation fails
+          }
+        } catch (err) {
+          console.error('Error in customer creation:', err);
+          // Don't fail signup if customer creation fails
+        }
+      }
+
+      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }
