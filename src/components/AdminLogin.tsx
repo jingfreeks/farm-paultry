@@ -25,22 +25,25 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
     setLoading(true);
     setError(null);
 
-    // Check for demo mode (when Supabase isn't configured)
+    // Always check demo credentials first (works even when Supabase is configured)
+    if (email === DEMO_ADMIN.email && password === DEMO_ADMIN.password) {
+      // Store demo login in localStorage
+      localStorage.setItem("demo_admin_logged_in", "true");
+      localStorage.setItem("demo_admin_email", email);
+      setLoading(false);
+      onLoginSuccess();
+      return;
+    }
+
+    // If not demo credentials and Supabase is not configured, show error
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      // Demo mode - check demo credentials
-      if (email === DEMO_ADMIN.email && password === DEMO_ADMIN.password) {
-        // Store demo login in localStorage
-        localStorage.setItem("demo_admin_logged_in", "true");
-        localStorage.setItem("demo_admin_email", email);
-        onLoginSuccess();
-      } else {
-        setError("Invalid credentials. Use the demo admin account.");
-        setShowDemoHint(true);
-      }
+      setError("Invalid credentials. Please use the demo admin account.");
+      setShowDemoHint(true);
       setLoading(false);
       return;
     }
 
+    // Try Supabase authentication
     try {
       const supabase = createClient();
       const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -48,26 +51,43 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
         password,
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        // If Supabase auth fails, show error with demo hint
+        setError(authError.message || "Invalid credentials. Please check your email and password.");
+        setShowDemoHint(true);
+        setLoading(false);
+        return;
+      }
 
       if (data.user) {
         // Check if user has admin role
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("user_profiles")
           .select("role")
           .eq("id", data.user.id)
           .single();
+
+        if (profileError) {
+          console.error("Profile error:", profileError);
+          // If profile doesn't exist, sign out and show error
+          await supabase.auth.signOut();
+          setError("User profile not found. Please contact an administrator.");
+          setShowDemoHint(true);
+          setLoading(false);
+          return;
+        }
 
         if (profile?.role === "admin" || profile?.role === "staff") {
           onLoginSuccess();
         } else {
           await supabase.auth.signOut();
           setError("You don't have admin access. Contact an administrator.");
+          setShowDemoHint(true);
         }
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
       setShowDemoHint(true);
     } finally {
       setLoading(false);
@@ -182,10 +202,17 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
             <button
               type="button"
               onClick={() => setShowDemoHint(true)}
-              className="text-sm text-charcoal/60 hover:text-olive transition-colors"
+              className="text-sm text-olive font-medium hover:text-terracotta transition-colors underline"
             >
-              Need help signing in?
+              Need help signing in? Click here for demo credentials
             </button>
+          </div>
+
+          {/* Always show demo credentials hint at the bottom */}
+          <div className="mt-4 p-3 bg-olive/5 border border-olive/20 rounded-lg">
+            <p className="text-xs text-charcoal/70 text-center">
+              <span className="font-medium text-olive">Demo Mode:</span> Use <code className="bg-wheat px-1.5 py-0.5 rounded text-xs">{DEMO_ADMIN.email}</code> / <code className="bg-wheat px-1.5 py-0.5 rounded text-xs">{DEMO_ADMIN.password}</code>
+            </p>
           </div>
 
           {/* Back to site */}
