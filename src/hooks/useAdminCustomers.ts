@@ -102,6 +102,26 @@ export function useAdminCustomers() {
       }
 
       console.log('Fetched profiles:', profiles?.length || 0, 'profiles');
+      
+      // If no profiles found, log more details
+      if (!profiles || profiles.length === 0) {
+        console.warn('No user profiles found. This could mean:');
+        console.warn('1. No users have signed up yet');
+        console.warn('2. RLS policies are blocking the query');
+        console.warn('3. The user_profiles table is empty');
+        
+        // Check if we can at least query the table (test RLS)
+        const { data: testQuery, error: testError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .limit(1);
+        
+        if (testError) {
+          console.error('RLS test query error:', testError);
+        } else {
+          console.log('RLS test query successful, but no profiles returned');
+        }
+      }
 
       // Fetch all orders to calculate statistics
       const { data: orders, error: ordersError } = await supabase
