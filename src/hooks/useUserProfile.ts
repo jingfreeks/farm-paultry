@@ -53,33 +53,66 @@ export function useUserProfile() {
         .single();
 
       if (fetchError) {
-        // If profile doesn't exist, create a basic one
-        if (fetchError.code === 'PGRST116') {
-          const { data: newProfile, error: createError } = await supabase
-            .from('user_profiles')
-            .insert({
+        // If profile doesn't exist (PGRST116 = no rows returned), create one
+        if (fetchError.code === 'PGRST116' || fetchError.message?.includes('No rows')) {
+          try {
+            const { data: newProfile, error: createError } = await supabase
+              .from('user_profiles')
+              .insert({
+                id: user.id,
+                email: user.email || '',
+                full_name: user.user_metadata?.full_name || null,
+                role: 'customer',
+              })
+              .select()
+              .single();
+
+            if (createError) {
+              // If insert fails (e.g., RLS policy issue), log and use fallback
+              console.warn('Could not create profile, using fallback:', createError);
+              throw createError;
+            }
+            setProfile(newProfile);
+          } catch (createErr) {
+            // If creation fails, use fallback profile from auth user
+            console.warn('Profile creation failed, using auth user data:', createErr);
+            setProfile({
               id: user.id,
               email: user.email || '',
               full_name: user.user_metadata?.full_name || null,
+              phone: null,
               role: 'customer',
-            })
-            .select()
-            .single();
-
-          if (createError) {
-            throw createError;
+              avatar_url: null,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
           }
-          setProfile(newProfile);
         } else {
-          throw fetchError;
+          // Other errors - log and use fallback
+          console.warn('Profile fetch error, using fallback:', fetchError);
+          setProfile({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || null,
+            phone: null,
+            role: 'customer',
+            avatar_url: null,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
         }
       } else {
         setProfile(data);
       }
     } catch (err) {
       console.error('Fetch profile error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
-      // Fallback to basic profile from auth user
+      const errorMessage = err instanceof Error 
+        ? (err.message || JSON.stringify(err))
+        : 'Failed to fetch profile';
+      setError(errorMessage);
+      // Always provide fallback profile from auth user
       setProfile({
         id: user.id,
         email: user.email || '',
@@ -110,13 +143,55 @@ export function useUserProfile() {
 
       const supabase = createClient();
       
-      // Update user profile
-      const { error: profileError } = await supabase
+      // First, check if profile exists
+      const { data: existingProfile, error: checkError } = await supabase
         .from('user_profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .select('id')
+        .eq('id', user.id)
+        .single();
 
-      if (profileError) throw profileError;
+      // If profile doesn't exist, create it first
+      if (checkError && (checkError.code === 'PGRST116' || checkError.message?.includes('No rows'))) {
+        console.log('Profile does not exist, creating it first...');
+        const { error: createError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: user.id,
+            email: user.email || '',
+            full_name: updates.full_name || null,
+            phone: updates.phone || null,
+            role: 'customer',
+            is_active: true,
+          });
+
+        if (createError) {
+          console.error('Error creating profile:', createError);
+          throw new Error(`Failed to create profile: ${createError.message}`);
+        }
+      } else if (checkError) {
+        console.error('Error checking profile:', checkError);
+        throw new Error(`Failed to check profile: ${checkError.message}`);
+      }
+
+      // Now update the profile (don't set updated_at manually - trigger handles it)
+      const { data: updatedData, error: profileError } = await supabase
+        .from('user_profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        // Provide more specific error message
+        if (profileError.code === '42501') {
+          throw new Error('Permission denied. You can only update your own profile.');
+        } else if (profileError.code === 'PGRST116') {
+          throw new Error('Profile not found. Please try refreshing the page.');
+        } else {
+          throw new Error(`Failed to update profile: ${profileError.message}`);
+        }
+      }
 
       // Also update auth user metadata if full_name changed
       if (updates.full_name !== undefined) {
@@ -126,16 +201,20 @@ export function useUserProfile() {
         if (authError) console.error('Error updating auth metadata:', authError);
       }
 
-      // Also update customer record
+      // Also update customer record (don't set updated_at manually - trigger handles it)
       if (user.email) {
-        await supabase
+        const { error: customerError } = await supabase
           .from('customers')
           .update({
             full_name: updates.full_name || null,
             phone: updates.phone || null,
-            updated_at: new Date().toISOString(),
           })
           .eq('email', user.email);
+        
+        if (customerError) {
+          console.warn('Customer update error (non-critical):', customerError);
+          // Don't fail the whole update if customer update fails
+        }
       }
 
       await fetchProfile();
