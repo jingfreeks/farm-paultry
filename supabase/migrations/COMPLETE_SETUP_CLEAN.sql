@@ -72,41 +72,36 @@ CREATE POLICY "Users can update own profile" ON user_profiles
 CREATE POLICY "Users can insert own profile" ON user_profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
+-- Helper function to check admin status (bypasses RLS to prevent recursion)
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  -- Use SECURITY DEFINER to bypass RLS when checking admin status
+  RETURN EXISTS (
+    SELECT 1 FROM user_profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Grant execute to authenticated users
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
+
 -- Admins can view all profiles
 CREATE POLICY "Admins can view all profiles" ON user_profiles
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  FOR SELECT USING (is_admin());
 
 -- Admins can insert profiles
 CREATE POLICY "Admins can insert profiles" ON user_profiles
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM user_profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  FOR INSERT WITH CHECK (is_admin());
 
 -- Admins can update any profile
 CREATE POLICY "Admins can update all profiles" ON user_profiles
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  FOR UPDATE USING (is_admin());
 
 -- Admins can delete profiles
 CREATE POLICY "Admins can delete profiles" ON user_profiles
-  FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  FOR DELETE USING (is_admin());
 
 -- Function to create profile on user signup
 CREATE OR REPLACE FUNCTION handle_new_user()
