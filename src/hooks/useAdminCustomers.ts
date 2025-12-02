@@ -124,6 +124,7 @@ export function useAdminCustomers() {
       }
 
       if (!profiles || profiles.length === 0) {
+        console.log('⚠️ No profiles returned from query');
         setCustomers([]);
         setLoading(false);
         return;
@@ -143,8 +144,8 @@ export function useAdminCustomers() {
       // Build order stats map for O(1) lookup
       const orderStatsMap = new Map<string, { count: number; total: number; lastOrder: string | null }>();
       
-      if (orders) {
-        orders.forEach((order) => {
+      if (orders && Array.isArray(orders)) {
+        orders.forEach((order: { customer_email: string; total_amount: number; created_at: string }) => {
           const email = order.customer_email;
           const existing = orderStatsMap.get(email) || { count: 0, total: 0, lastOrder: null };
           
@@ -159,7 +160,7 @@ export function useAdminCustomers() {
       }
 
       // Map profiles to customers with stats (optimized)
-      const customersWithStats: CustomerWithStats[] = profiles.map((profile) => {
+      const customersWithStats: CustomerWithStats[] = (profiles || []).map((profile: any) => {
         const stats = orderStatsMap.get(profile.email) || { count: 0, total: 0, lastOrder: null };
         
         return {
