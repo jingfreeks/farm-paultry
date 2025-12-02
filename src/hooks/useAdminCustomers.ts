@@ -81,13 +81,37 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
+      // Debug: Check current user and their profile
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      console.log('🔍 Current authenticated user:', currentUser?.id, currentUser?.email);
+      
+      if (currentUser) {
+        const { data: currentProfile } = await supabase
+          .from('user_profiles')
+          .select('id, email, role')
+          .eq('id', currentUser.id)
+          .single();
+        console.log('🔍 Current user profile:', currentProfile);
+      }
+
+      // First, try without role filter to see if RLS allows any query
+      const { data: allProfiles, error: allProfilesError } = await supabase
+        .from('user_profiles')
+        .select('id, email, role')
+        .limit(10);
+      
+      console.log('🔍 All profiles (no filter):', allProfiles);
+      console.log('🔍 All profiles error:', allProfilesError);
+
       // Fetch only customer profiles with selected fields (optimized)
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
         .eq('role', 'customer')
         .order('created_at', { ascending: false });
-
+      
+      console.log('🔍 Customer profiles result:', profiles);
+      console.log('🔍 Customer profiles error:', profilesError);
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
         if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
