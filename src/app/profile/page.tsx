@@ -41,19 +41,28 @@ export default function ProfilePage() {
     setError(null);
     setSuccess(null);
 
-    const result = await updateProfile({
-      full_name: formData.full_name || null,
-      phone: formData.phone || null,
-    });
+    try {
+      const result = await updateProfile({
+        full_name: formData.full_name || null,
+        phone: formData.phone || null,
+      });
 
-    if (result.success) {
-      setSuccess("Profile updated successfully!");
-      setIsEditing(false);
-      setTimeout(() => setSuccess(null), 3000);
-    } else {
-      setError(result.error || "Failed to update profile");
+      if (result.success) {
+        setSuccess("Profile updated successfully!");
+        setIsEditing(false);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        const errorMsg = result.error || "Failed to update profile";
+        setError(errorMsg);
+        console.error("Profile update failed:", errorMsg);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(errorMsg);
+      console.error("Profile update error:", err);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleCancel = () => {
