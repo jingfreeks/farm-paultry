@@ -11,8 +11,36 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error && data.user) {
-      // Customer record will be created automatically by the database trigger
-      // (handle_new_user function) when the user is created
+      // Ensure user_profile is created (fallback if trigger fails)
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .single();
+
+        // If profile doesn't exist, create it
+        if (profileError && profileError.code === 'PGRST116') {
+          const { error: insertError } = await supabase
+            .from('user_profiles')
+            .insert({
+              id: data.user.id,
+              email: data.user.email || '',
+              full_name: data.user.user_metadata?.full_name || null,
+              role: 'customer',
+              is_active: true,
+            });
+
+          if (insertError) {
+            console.warn('Failed to create user profile in callback:', insertError);
+            // Don't fail the redirect if profile creation fails
+          }
+        }
+      } catch (profileCheckError) {
+        console.warn('Error checking/creating user profile in callback:', profileCheckError);
+        // Don't fail the redirect if profile check fails
+      }
+
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
