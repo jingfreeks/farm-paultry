@@ -81,6 +81,35 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
+      // First, check current user and their profile status
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      console.log('Current user:', currentUser?.id, currentUser?.email);
+      
+      if (currentUser) {
+        // Check if current user has a profile
+        const { data: currentProfile, error: profileCheckError } = await supabase
+          .from('user_profiles')
+          .select('id, email, role')
+          .eq('id', currentUser.id)
+          .single();
+        
+        if (profileCheckError) {
+          console.warn('Current user profile check:', profileCheckError);
+          if (profileCheckError.code === 'PGRST116') {
+            console.error('⚠️ CRITICAL: Current user does not have a profile!');
+            console.error('The admin user needs a profile with role="admin" to view other profiles.');
+            console.error('Please create a profile for this user in the database.');
+          }
+        } else {
+          console.log('Current user profile:', currentProfile);
+          if (currentProfile && currentProfile.role !== 'admin' && currentProfile.role !== 'staff') {
+            console.warn('⚠️ Current user is not admin or staff. Role:', currentProfile.role);
+          }
+        }
+      } else {
+        console.warn('No authenticated user found');
+      }
+
       // Fetch all user profiles (customers, staff, admins)
       // RLS policies will handle authentication and authorization
       const { data: profiles, error: profilesError } = await supabase
@@ -105,10 +134,11 @@ export function useAdminCustomers() {
       
       // If no profiles found, log more details
       if (!profiles || profiles.length === 0) {
-        console.warn('No user profiles found. This could mean:');
+        console.warn('⚠️ No user profiles found. This could mean:');
         console.warn('1. No users have signed up yet');
-        console.warn('2. RLS policies are blocking the query');
+        console.warn('2. RLS policies are blocking the query (most likely)');
         console.warn('3. The user_profiles table is empty');
+        console.warn('4. Current user does not have admin/staff role in their profile');
         
         // Check if we can at least query the table (test RLS)
         const { data: testQuery, error: testError } = await supabase
@@ -117,9 +147,30 @@ export function useAdminCustomers() {
           .limit(1);
         
         if (testError) {
-          console.error('RLS test query error:', testError);
+          console.error('❌ RLS test query error:', testError);
+          console.error('Error code:', testError.code);
+          console.error('Error message:', testError.message);
+          
+          // Provide specific guidance based on error
+          if (testError.code === '42501' || testError.message.includes('permission denied')) {
+            console.error('🔒 PERMISSION DENIED: The RLS policy is blocking access.');
+            console.error('💡 SOLUTION: Ensure your user has a profile with role="admin" or role="staff"');
+            console.error('💡 Run this SQL in Supabase to create/fix your admin profile:');
+            console.error(`
+-- Replace 'YOUR_USER_ID' and 'YOUR_EMAIL' with your actual values
+INSERT INTO user_profiles (id, email, role, is_active)
+VALUES (
+  (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL' LIMIT 1),
+  'YOUR_EMAIL',
+  'admin',
+  true
+)
+ON CONFLICT (id) DO UPDATE SET role = 'admin', is_active = true;
+            `);
+          }
         } else {
-          console.log('RLS test query successful, but no profiles returned');
+          console.log('✅ RLS test query successful, but no profiles returned');
+          console.log('This means the query works but the table is empty or all profiles are filtered out');
         }
       }
 
