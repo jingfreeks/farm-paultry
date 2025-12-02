@@ -175,13 +175,13 @@ BEGIN
         SELECT 1 FROM information_schema.columns 
         WHERE table_name = 'customers' AND column_name = 'user_profile_id'
       ) THEN
-        -- Column exists, use it
+        -- Column exists, use it - ensure both email and user_profile_id are set
         INSERT INTO customers (email, full_name, user_profile_id)
         VALUES (user_email, user_full_name, NEW.id)
         ON CONFLICT (email) DO UPDATE
         SET 
           full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
-          user_profile_id = COALESCE(EXCLUDED.user_profile_id, NEW.id),
+          user_profile_id = COALESCE(EXCLUDED.user_profile_id, NEW.id, customers.user_profile_id),
           updated_at = NOW();
       ELSE
         -- Column doesn't exist yet, insert without it
