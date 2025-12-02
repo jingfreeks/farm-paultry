@@ -145,14 +145,16 @@ BEGIN
   END;
 
   -- Create customer record (upsert to handle existing emails)
+  -- Link it to user_profile using user_profile_id
   -- Only if customers table exists and email is not null
   IF user_email IS NOT NULL AND user_email != '' THEN
     BEGIN
-      INSERT INTO customers (email, full_name)
-      VALUES (user_email, user_full_name)
+      INSERT INTO customers (email, full_name, user_profile_id)
+      VALUES (user_email, user_full_name, NEW.id)
       ON CONFLICT (email) DO UPDATE
       SET 
         full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
+        user_profile_id = COALESCE(EXCLUDED.user_profile_id, NEW.id),
         updated_at = NOW();
     EXCEPTION WHEN OTHERS THEN
       -- Log error but don't fail user creation
@@ -198,17 +200,56 @@ END $$;
 
 -- Ensure customer record exists for this email (only if customers table exists)
 DO $$ 
+DECLARE
+  profile_id_val UUID;
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers') THEN
-    INSERT INTO customers (email, full_name)
-    VALUES ('machinehead992003@yahoo.com', NULL)
+    -- Get the user_profile_id for this email
+    SELECT id INTO profile_id_val FROM user_profiles WHERE email = 'machinehead992003@yahoo.com' LIMIT 1;
+    
+    INSERT INTO customers (email, full_name, user_profile_id)
+    VALUES ('machinehead992003@yahoo.com', NULL, profile_id_val)
     ON CONFLICT (email) DO UPDATE
-    SET updated_at = NOW();
+    SET 
+      user_profile_id = COALESCE(EXCLUDED.user_profile_id, customers.user_profile_id),
+      updated_at = NOW();
   END IF;
 END $$;
 
 -- ============================================
--- STEP 3: Add customer RLS policies
+-- STEP 3: Link customers table to user_profiles
+-- ============================================
+
+-- Add user_profile_id column to customers table (if it doesn't exist)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name = 'customers' AND column_name = 'user_profile_id'
+    ) THEN
+      ALTER TABLE customers ADD COLUMN user_profile_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE;
+      CREATE INDEX IF NOT EXISTS idx_customers_user_profile_id ON customers(user_profile_id);
+    END IF;
+  END IF;
+END $$;
+
+-- Update existing customers to link them to user_profiles by email
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers') 
+     AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_profiles') THEN
+    UPDATE customers c
+    SET user_profile_id = up.id
+    FROM user_profiles up
+    WHERE c.email = up.email 
+      AND c.user_profile_id IS NULL
+      AND up.role = 'customer';
+  END IF;
+END $$;
+
+-- ============================================
+-- STEP 4: Add customer RLS policies
 -- ============================================
 
 -- Drop existing customer policies if they exist
@@ -230,7 +271,7 @@ CREATE POLICY "Users can view own customer" ON customers
   FOR SELECT USING (email = auth.jwt()->>'email');
 
 -- ============================================
--- STEP 4: Create profiles for existing users who don't have one
+-- STEP 5: Create profiles for existing users who don't have one
 -- ============================================
 
 -- This will create profiles for any existing auth users who don't have a profile
