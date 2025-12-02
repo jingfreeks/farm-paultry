@@ -81,13 +81,28 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       // Fetch all user profiles (customers, staff, admins)
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error('Error fetching user_profiles:', profilesError);
+        // Check if it's an RLS error
+        if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
+          throw new Error('Permission denied. Make sure you are logged in as an admin.');
+        }
+        throw profilesError;
+      }
+
+      console.log('Fetched profiles:', profiles?.length || 0, 'profiles');
 
       // Fetch all orders to calculate statistics
       const { data: orders, error: ordersError } = await supabase
@@ -95,11 +110,16 @@ export function useAdminCustomers() {
         .select('customer_email, total_amount, created_at')
         .order('created_at', { ascending: false });
 
-      if (ordersError) throw ordersError;
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        // Don't throw - we can still show profiles without order stats
+      }
+
+      const ordersList = orders || [];
 
       // Calculate order statistics for each customer
       const customersWithStats: CustomerWithStats[] = (profiles || []).map((profile) => {
-        const customerOrders = (orders || []).filter(
+        const customerOrders = ordersList.filter(
           (order) => order.customer_email === profile.email
         );
 
@@ -125,12 +145,19 @@ export function useAdminCustomers() {
         };
       });
 
+      console.log('Setting customers:', customersWithStats.length);
       setCustomers(customersWithStats);
     } catch (err) {
       console.error('Fetch customers error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch customers');
-      // Fallback to demo data
-      setCustomers(demoCustomers);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch customers';
+      setError(errorMessage);
+      // Only fallback to demo data if Supabase is not configured
+      // Otherwise, show empty array so user knows there's an issue
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        setCustomers(demoCustomers);
+      } else {
+        setCustomers([]);
+      }
     } finally {
       setLoading(false);
     }

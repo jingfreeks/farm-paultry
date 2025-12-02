@@ -77,9 +77,10 @@ CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
   -- Use SECURITY DEFINER to bypass RLS when checking admin status
+  -- Include both admin and staff roles
   RETURN EXISTS (
     SELECT 1 FROM user_profiles
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid() AND (role = 'admin' OR role = 'staff')
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;

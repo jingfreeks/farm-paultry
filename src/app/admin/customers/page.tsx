@@ -47,8 +47,12 @@ export default function CustomersPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600">
-          Error loading customers: {error}
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <h3 className="font-semibold text-red-800 mb-2">Error loading customers</h3>
+          <p className="text-red-600">{error}</p>
+          <p className="text-sm text-red-500 mt-2">
+            Make sure you are logged in as an admin and that the database migrations have been run.
+          </p>
         </div>
       </div>
     );
@@ -181,10 +185,22 @@ export default function CustomersPage() {
                   </td>
                 </tr>
               ))}
-              {filteredCustomers.length === 0 && (
+              {filteredCustomers.length === 0 && customers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <p className="text-charcoal/60 font-medium">No customers found</p>
+                      <p className="text-sm text-charcoal/40">
+                        {searchTerm ? 'Try a different search term' : 'No user profiles exist yet. Users will appear here after they sign up.'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {filteredCustomers.length === 0 && customers.length > 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-charcoal/60">
-                    No customers found
+                    No customers match your search
                   </td>
                 </tr>
               )}
