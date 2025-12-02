@@ -81,13 +81,8 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
-      // Check if user is authenticated
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
       // Fetch all user profiles (customers, staff, admins)
+      // RLS policies will handle authentication and authorization
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -95,9 +90,13 @@ export function useAdminCustomers() {
 
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
-        // Check if it's an RLS error
-        if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
-          throw new Error('Permission denied. Make sure you are logged in as an admin.');
+        // Check if it's an RLS/permission error
+        if (profilesError.code === '42501' || profilesError.message.includes('permission denied') || profilesError.message.includes('new row violates')) {
+          throw new Error('Permission denied. Make sure you are logged in as an admin or staff member.');
+        }
+        // Check if it's an authentication error
+        if (profilesError.code === 'PGRST301' || profilesError.message.includes('JWT')) {
+          throw new Error('Authentication required. Please log in again.');
         }
         throw profilesError;
       }
