@@ -1,46 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-// Demo customer data
-const demoCustomers = [
-  { id: '1', email: 'john@example.com', full_name: 'John Doe', phone: '+1234567890', orders: 5, total_spent: 456.50, last_order: '2024-01-15' },
-  { id: '2', email: 'jane@example.com', full_name: 'Jane Smith', phone: '+1987654321', orders: 3, total_spent: 234.00, last_order: '2024-01-12' },
-  { id: '3', email: 'bob@example.com', full_name: 'Bob Wilson', phone: null, orders: 8, total_spent: 892.75, last_order: '2024-01-10' },
-  { id: '4', email: 'alice@example.com', full_name: 'Alice Brown', phone: '+1122334455', orders: 2, total_spent: 89.99, last_order: '2024-01-08' },
-  { id: '5', email: 'charlie@example.com', full_name: 'Charlie Davis', phone: '+1555666777', orders: 12, total_spent: 1234.50, last_order: '2024-01-05' },
-];
-
-interface Customer {
-  id: string;
-  email: string;
-  full_name: string;
-  phone: string | null;
-  orders: number;
-  total_spent: number;
-  last_order: string;
-}
+import { useState } from "react";
+import { useAdminCustomers } from "@/hooks/useAdminCustomers";
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { customers, loading, error } = useAdminCustomers();
   const [searchTerm, setSearchTerm] = useState("");
-
-  useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setCustomers(demoCustomers);
-      setLoading(false);
-    }, 500);
-  }, []);
 
   const filteredCustomers = customers.filter(
     (c) =>
-      c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Never';
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -48,10 +23,33 @@ export default function CustomersPage() {
     });
   };
 
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'bg-red-100 text-red-800';
+      case 'staff':
+        return 'bg-blue-100 text-blue-800';
+      case 'customer':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-terracotta border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600">
+          Error loading customers: {error}
+        </div>
       </div>
     );
   }
@@ -123,6 +121,9 @@ export default function CustomersPage() {
                   Contact
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-charcoal/70 uppercase tracking-wider">
+                  Role
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-charcoal/70 uppercase tracking-wider">
                   Orders
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-charcoal/70 uppercase tracking-wider">
@@ -140,12 +141,12 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-olive/10 rounded-full flex items-center justify-center">
                         <span className="font-bold text-olive">
-                          {customer.full_name.charAt(0)}
+                          {customer.full_name?.charAt(0) || customer.email.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-bark">{customer.full_name}</p>
-                        <p className="text-sm text-charcoal/60">ID: #{customer.id}</p>
+                        <p className="font-medium text-bark">{customer.full_name || 'No name'}</p>
+                        <p className="text-sm text-charcoal/60">ID: #{customer.id.slice(0, 8)}</p>
                       </div>
                     </div>
                   </td>
@@ -153,6 +154,18 @@ export default function CustomersPage() {
                     <div>
                       <p className="text-sm text-bark">{customer.email}</p>
                       <p className="text-sm text-charcoal/60">{customer.phone || "No phone"}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getRoleBadgeColor(customer.role)}`}>
+                        {customer.role}
+                      </span>
+                      {!customer.is_active && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          Inactive
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -170,7 +183,7 @@ export default function CustomersPage() {
               ))}
               {filteredCustomers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-charcoal/60">
+                  <td colSpan={6} className="px-6 py-12 text-center text-charcoal/60">
                     No customers found
                   </td>
                 </tr>
