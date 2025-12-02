@@ -110,11 +110,12 @@ export function useAdminCustomers() {
         console.warn('No authenticated user found');
       }
 
-      // Fetch all user profiles (customers, staff, admins)
+      // Fetch only customer profiles
       // RLS policies will handle authentication and authorization
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
         .select('*')
+        .eq('role', 'customer')
         .order('created_at', { ascending: false });
 
       if (profilesError) {
