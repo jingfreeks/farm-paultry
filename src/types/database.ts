@@ -69,6 +69,7 @@ export type Database = {
           city: string | null;
           state: string | null;
           zip_code: string | null;
+          user_profile_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -81,6 +82,7 @@ export type Database = {
           city?: string | null;
           state?: string | null;
           zip_code?: string | null;
+          user_profile_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -93,6 +95,7 @@ export type Database = {
           city?: string | null;
           state?: string | null;
           zip_code?: string | null;
+          user_profile_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
