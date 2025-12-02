@@ -44,8 +44,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Customer records are created automatically by database triggers
-        // No need to create them client-side
+        // Ensure user_profile exists (fallback if trigger failed)
+        if (session?.user && (event === 'SIGNED_IN' || event === 'SIGNED_UP' || event === 'TOKEN_REFRESHED')) {
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .eq('id', session.user.id)
+              .single();
+
+            // If profile doesn't exist, create it
+            if (profileError && profileError.code === 'PGRST116') {
+              const { error: insertError } = await supabase
+                .from('user_profiles')
+                .insert({
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  full_name: session.user.user_metadata?.full_name || null,
+                  role: 'customer',
+                  is_active: true,
+                });
+
+              if (insertError) {
+                console.warn('Failed to create user profile on auth state change:', insertError);
+              }
+            }
+          } catch (profileCheckError) {
+            console.warn('Error checking/creating user profile on auth state change:', profileCheckError);
+          }
+        }
         
         setLoading(false);
       }
@@ -84,9 +111,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error as Error };
       }
 
-      // Customer record will be created automatically by the database trigger
-      // (handle_new_user function in migration 005)
-      // No need to create it client-side as RLS might block it
+      // Ensure user_profile is created (fallback if trigger fails)
+      if (data.user) {
+        try {
+          // Wait a bit for the trigger to run, then check if profile exists
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .single();
+
+          // If profile doesn't exist, create it
+          if (profileError && profileError.code === 'PGRST116') {
+            const { error: insertError } = await supabase
+              .from('user_profiles')
+              .insert({
+                id: data.user.id,
+                email: data.user.email || email,
+                full_name: fullName || data.user.user_metadata?.full_name || null,
+                role: 'customer',
+                is_active: true,
+              });
+
+            if (insertError) {
+              console.warn('Failed to create user profile:', insertError);
+              // Don't fail signup if profile creation fails - trigger should handle it
+            }
+          }
+        } catch (profileCheckError) {
+          console.warn('Error checking/creating user profile:', profileCheckError);
+          // Don't fail signup if profile check fails
+        }
+      }
       
       return { error: null };
     } catch (error) {
