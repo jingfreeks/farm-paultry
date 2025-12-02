@@ -104,7 +104,28 @@ CREATE POLICY "Admins can update all profiles" ON user_profiles
 CREATE POLICY "Admins can delete profiles" ON user_profiles
   FOR DELETE USING (is_admin());
 
--- Function to create profile on user signup
+-- ============================================
+-- STEP 1.5: Link customers table to user_profiles (before trigger)
+-- ============================================
+
+-- Add user_profile_id column to customers table (if it doesn't exist)
+-- This must be done BEFORE creating the trigger function that uses it
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name = 'customers' AND column_name = 'user_profile_id'
+    ) THEN
+      ALTER TABLE customers ADD COLUMN user_profile_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE;
+      CREATE INDEX IF NOT EXISTS idx_customers_user_profile_id ON customers(user_profile_id);
+    END IF;
+  END IF;
+END $$;
+
+-- ============================================
+-- STEP 1.6: Function to create profile on user signup
+-- ============================================
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -149,13 +170,28 @@ BEGIN
   -- Only if customers table exists and email is not null
   IF user_email IS NOT NULL AND user_email != '' THEN
     BEGIN
-      INSERT INTO customers (email, full_name, user_profile_id)
-      VALUES (user_email, user_full_name, NEW.id)
-      ON CONFLICT (email) DO UPDATE
-      SET 
-        full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
-        user_profile_id = COALESCE(EXCLUDED.user_profile_id, NEW.id),
-        updated_at = NOW();
+      -- Check if user_profile_id column exists
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'customers' AND column_name = 'user_profile_id'
+      ) THEN
+        -- Column exists, use it
+        INSERT INTO customers (email, full_name, user_profile_id)
+        VALUES (user_email, user_full_name, NEW.id)
+        ON CONFLICT (email) DO UPDATE
+        SET 
+          full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
+          user_profile_id = COALESCE(EXCLUDED.user_profile_id, NEW.id),
+          updated_at = NOW();
+      ELSE
+        -- Column doesn't exist yet, insert without it
+        INSERT INTO customers (email, full_name)
+        VALUES (user_email, user_full_name)
+        ON CONFLICT (email) DO UPDATE
+        SET 
+          full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
+          updated_at = NOW();
+      END IF;
     EXCEPTION WHEN OTHERS THEN
       -- Log error but don't fail user creation
       RAISE WARNING 'Error creating customer record for email %: %', user_email, SQLERRM;
@@ -207,32 +243,30 @@ BEGIN
     -- Get the user_profile_id for this email
     SELECT id INTO profile_id_val FROM user_profiles WHERE email = 'machinehead992003@yahoo.com' LIMIT 1;
     
-    INSERT INTO customers (email, full_name, user_profile_id)
-    VALUES ('machinehead992003@yahoo.com', NULL, profile_id_val)
-    ON CONFLICT (email) DO UPDATE
-    SET 
-      user_profile_id = COALESCE(EXCLUDED.user_profile_id, customers.user_profile_id),
-      updated_at = NOW();
-  END IF;
-END $$;
-
--- ============================================
--- STEP 3: Link customers table to user_profiles
--- ============================================
-
--- Add user_profile_id column to customers table (if it doesn't exist)
-DO $$ 
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers') THEN
-    IF NOT EXISTS (
+    -- Check if user_profile_id column exists before using it
+    IF EXISTS (
       SELECT 1 FROM information_schema.columns 
       WHERE table_name = 'customers' AND column_name = 'user_profile_id'
     ) THEN
-      ALTER TABLE customers ADD COLUMN user_profile_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE;
-      CREATE INDEX IF NOT EXISTS idx_customers_user_profile_id ON customers(user_profile_id);
+      INSERT INTO customers (email, full_name, user_profile_id)
+      VALUES ('machinehead992003@yahoo.com', NULL, profile_id_val)
+      ON CONFLICT (email) DO UPDATE
+      SET 
+        user_profile_id = COALESCE(EXCLUDED.user_profile_id, customers.user_profile_id),
+        updated_at = NOW();
+    ELSE
+      -- Fallback if column doesn't exist yet
+      INSERT INTO customers (email, full_name)
+      VALUES ('machinehead992003@yahoo.com', NULL)
+      ON CONFLICT (email) DO UPDATE
+      SET updated_at = NOW();
     END IF;
   END IF;
 END $$;
+
+-- ============================================
+-- STEP 3: Update existing customers to link them to user_profiles
+-- ============================================
 
 -- Update existing customers to link them to user_profiles by email
 DO $$
