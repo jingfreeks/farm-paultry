@@ -81,126 +81,63 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
-      // First, check current user and their profile status
-      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-      console.log('Current user:', currentUser?.id, currentUser?.email);
-      
-      if (currentUser) {
-        // Check if current user has a profile
-        const { data: currentProfile, error: profileCheckError } = await supabase
-          .from('user_profiles')
-          .select('id, email, role')
-          .eq('id', currentUser.id)
-          .single();
-        
-        if (profileCheckError) {
-          console.warn('Current user profile check:', profileCheckError);
-          if (profileCheckError.code === 'PGRST116') {
-            console.error('⚠️ CRITICAL: Current user does not have a profile!');
-            console.error('The admin user needs a profile with role="admin" to view other profiles.');
-            console.error('Please create a profile for this user in the database.');
-          }
-        } else {
-          console.log('Current user profile:', currentProfile);
-          if (currentProfile && currentProfile.role !== 'admin' && currentProfile.role !== 'staff') {
-            console.warn('⚠️ Current user is not admin or staff. Role:', currentProfile.role);
-          }
-        }
-      } else {
-        console.warn('No authenticated user found');
-      }
-
-      // Fetch only customer profiles
-      // RLS policies will handle authentication and authorization
+      // Fetch only customer profiles with selected fields (optimized)
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
         .eq('role', 'customer')
         .order('created_at', { ascending: false });
 
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
-        // Check if it's an RLS/permission error
-        if (profilesError.code === '42501' || profilesError.message.includes('permission denied') || profilesError.message.includes('new row violates')) {
+        if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
           throw new Error('Permission denied. Make sure you are logged in as an admin or staff member.');
         }
-        // Check if it's an authentication error
         if (profilesError.code === 'PGRST301' || profilesError.message.includes('JWT')) {
           throw new Error('Authentication required. Please log in again.');
         }
         throw profilesError;
       }
 
-      console.log('Fetched profiles:', profiles?.length || 0, 'profiles');
-      
-      // If no profiles found, log more details
       if (!profiles || profiles.length === 0) {
-        console.warn('⚠️ No user profiles found. This could mean:');
-        console.warn('1. No users have signed up yet');
-        console.warn('2. RLS policies are blocking the query (most likely)');
-        console.warn('3. The user_profiles table is empty');
-        console.warn('4. Current user does not have admin/staff role in their profile');
-        
-        // Check if we can at least query the table (test RLS)
-        const { data: testQuery, error: testError } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .limit(1);
-        
-        if (testError) {
-          console.error('❌ RLS test query error:', testError);
-          console.error('Error code:', testError.code);
-          console.error('Error message:', testError.message);
-          
-          // Provide specific guidance based on error
-          if (testError.code === '42501' || testError.message.includes('permission denied')) {
-            console.error('🔒 PERMISSION DENIED: The RLS policy is blocking access.');
-            console.error('💡 SOLUTION: Ensure your user has a profile with role="admin" or role="staff"');
-            console.error('💡 Run this SQL in Supabase to create/fix your admin profile:');
-            console.error(`
--- Replace 'YOUR_USER_ID' and 'YOUR_EMAIL' with your actual values
-INSERT INTO user_profiles (id, email, role, is_active)
-VALUES (
-  (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL' LIMIT 1),
-  'YOUR_EMAIL',
-  'admin',
-  true
-)
-ON CONFLICT (id) DO UPDATE SET role = 'admin', is_active = true;
-            `);
-          }
-        } else {
-          console.log('✅ RLS test query successful, but no profiles returned');
-          console.log('This means the query works but the table is empty or all profiles are filtered out');
-        }
+        setCustomers([]);
+        setLoading(false);
+        return;
       }
 
-      // Fetch all orders to calculate statistics
+      // Fetch order statistics grouped by customer email (optimized)
+      // Only fetch what we need: email, count, sum, and max date
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('customer_email, total_amount, created_at')
-        .order('created_at', { ascending: false });
+        .select('customer_email, total_amount, created_at');
 
       if (ordersError) {
         console.error('Error fetching orders:', ordersError);
-        // Don't throw - we can still show profiles without order stats
+        // Continue without order stats
       }
 
-      const ordersList = orders || [];
+      // Build order stats map for O(1) lookup
+      const orderStatsMap = new Map<string, { count: number; total: number; lastOrder: string | null }>();
+      
+      if (orders) {
+        orders.forEach((order) => {
+          const email = order.customer_email;
+          const existing = orderStatsMap.get(email) || { count: 0, total: 0, lastOrder: null };
+          
+          orderStatsMap.set(email, {
+            count: existing.count + 1,
+            total: existing.total + (order.total_amount || 0),
+            lastOrder: existing.lastOrder 
+              ? (order.created_at > existing.lastOrder ? order.created_at : existing.lastOrder)
+              : order.created_at,
+          });
+        });
+      }
 
-      // Calculate order statistics for each customer
-      const customersWithStats: CustomerWithStats[] = (profiles || []).map((profile) => {
-        const customerOrders = ordersList.filter(
-          (order) => order.customer_email === profile.email
-        );
-
-        const totalSpent = customerOrders.reduce(
-          (sum, order) => sum + (order.total_amount || 0),
-          0
-        );
-
-        const lastOrder = customerOrders.length > 0 ? customerOrders[0].created_at : null;
-
+      // Map profiles to customers with stats (optimized)
+      const customersWithStats: CustomerWithStats[] = profiles.map((profile) => {
+        const stats = orderStatsMap.get(profile.email) || { count: 0, total: 0, lastOrder: null };
+        
         return {
           id: profile.id,
           email: profile.email,
@@ -210,13 +147,11 @@ ON CONFLICT (id) DO UPDATE SET role = 'admin', is_active = true;
           is_active: profile.is_active,
           created_at: profile.created_at,
           updated_at: profile.updated_at,
-          orders: customerOrders.length,
-          total_spent: totalSpent,
-          last_order: lastOrder,
+          orders: stats.count,
+          total_spent: stats.total,
+          last_order: stats.lastOrder,
         };
       });
-
-      console.log('Setting customers:', customersWithStats.length);
       setCustomers(customersWithStats);
     } catch (err) {
       console.error('Fetch customers error:', err);
