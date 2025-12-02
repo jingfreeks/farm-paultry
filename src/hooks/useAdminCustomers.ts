@@ -87,9 +87,14 @@ export function useAdminCustomers() {
         .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
         .eq('role', 'customer')
         .order('created_at', { ascending: false });
-      console.log(profiles);
+      console.log('Query result - profiles:', profiles);
+      console.log('Query result - error:', profilesError);
+      
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
+        console.error('Error code:', profilesError.code);
+        console.error('Error message:', profilesError.message);
+        
         if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
           throw new Error('Permission denied. Make sure you are logged in as an admin or staff member.');
         }
@@ -98,6 +103,10 @@ export function useAdminCustomers() {
         }
         throw profilesError;
       }
+
+      // Filter customers in memory as fallback if needed
+      const customerProfiles = (profiles || []).filter((p: any) => p.role === 'customer');
+      console.log('Filtered customer profiles:', customerProfiles.length, 'out of', profiles?.length || 0);
 
       if (!customerProfiles || customerProfiles.length === 0) {
         console.warn('No customer profiles found. Total profiles:', profiles?.length || 0);
@@ -120,8 +129,8 @@ export function useAdminCustomers() {
       // Build order stats map for O(1) lookup
       const orderStatsMap = new Map<string, { count: number; total: number; lastOrder: string | null }>();
       
-      if (orders) {
-        orders.forEach((order) => {
+      if (orders && Array.isArray(orders)) {
+        orders.forEach((order: any) => {
           const email = order.customer_email;
           const existing = orderStatsMap.get(email) || { count: 0, total: 0, lastOrder: null };
           
