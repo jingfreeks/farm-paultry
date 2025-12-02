@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error as Error };
       }
 
-      // Ensure user_profile is created (fallback if trigger fails)
+      // Ensure user_profile and customer records are created (fallback if trigger fails)
       if (data.user) {
         try {
           // Wait a bit for the trigger to run, then check if profile exists
@@ -137,7 +137,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (insertError) {
               console.warn('Failed to create user profile:', insertError);
-              // Don't fail signup if profile creation fails - trigger should handle it
+            }
+          }
+
+          // Also ensure customer record exists
+          if (data.user.email) {
+            try {
+              // Check if customer exists
+              const { data: customer, error: customerError } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('email', data.user.email)
+                .single();
+
+              // If customer doesn't exist, create it
+              if (customerError && customerError.code === 'PGRST116') {
+                // Check if user_profile_id column exists
+                const { data: profileForCustomer } = await supabase
+                  .from('user_profiles')
+                  .select('id')
+                  .eq('id', data.user.id)
+                  .single();
+
+                const customerData: any = {
+                  email: data.user.email,
+                  full_name: fullName || data.user.user_metadata?.full_name || null,
+                };
+
+                // Add user_profile_id if column exists and we have a profile
+                if (profileForCustomer) {
+                  customerData.user_profile_id = data.user.id;
+                }
+
+                const { error: customerInsertError } = await supabase
+                  .from('customers')
+                  .insert(customerData);
+
+                if (customerInsertError) {
+                  console.warn('Failed to create customer record:', customerInsertError);
+                }
+              }
+            } catch (customerCheckError) {
+              console.warn('Error checking/creating customer record:', customerCheckError);
             }
           }
         } catch (profileCheckError) {

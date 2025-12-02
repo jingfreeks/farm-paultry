@@ -49,10 +49,23 @@ export default function CustomersPage() {
       <div className="space-y-6">
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <h3 className="font-semibold text-red-800 mb-2">Error loading customers</h3>
-          <p className="text-red-600">{error}</p>
-          <p className="text-sm text-red-500 mt-2">
-            Make sure you are logged in as an admin and that the database migrations have been run.
-          </p>
+          <p className="text-red-600 mb-3">{error}</p>
+          <div className="text-sm text-red-500 space-y-2">
+            <p className="font-medium">Troubleshooting steps:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Make sure you are logged in as an admin or staff member</li>
+              <li>Verify your user profile has role='admin' or role='staff' in the database</li>
+              <li>Check that database migrations have been run (COMPLETE_SETUP_CLEAN.sql)</li>
+              <li>Open browser console (F12) for detailed error information</li>
+              <li>Try refreshing the page or logging out and back in</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
