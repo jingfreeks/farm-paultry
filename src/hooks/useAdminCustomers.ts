@@ -81,37 +81,13 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
-      // Debug: Check current user and their profile
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      console.log('🔍 Current authenticated user:', currentUser?.id, currentUser?.email);
-      
-      if (currentUser) {
-        const { data: currentProfile } = await supabase
-          .from('user_profiles')
-          .select('id, email, role')
-          .eq('id', currentUser.id)
-          .single();
-        console.log('🔍 Current user profile:', currentProfile);
-      }
-
-      // First, try without role filter to see if RLS allows any query
-      const { data: allProfiles, error: allProfilesError } = await supabase
-        .from('user_profiles')
-        .select('id, email, role')
-        .limit(10);
-      
-      console.log('🔍 All profiles (no filter):', allProfiles);
-      console.log('🔍 All profiles error:', allProfilesError);
-
       // Fetch only customer profiles with selected fields (optimized)
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
         .eq('role', 'customer')
         .order('created_at', { ascending: false });
-      
-      console.log('🔍 Customer profiles result:', profiles);
-      console.log('🔍 Customer profiles error:', profilesError);
+      console.log(profiles);
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
         if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
@@ -123,8 +99,8 @@ export function useAdminCustomers() {
         throw profilesError;
       }
 
-      if (!profiles || profiles.length === 0) {
-        console.log('⚠️ No profiles returned from query');
+      if (!customerProfiles || customerProfiles.length === 0) {
+        console.warn('No customer profiles found. Total profiles:', profiles?.length || 0);
         setCustomers([]);
         setLoading(false);
         return;
@@ -144,8 +120,8 @@ export function useAdminCustomers() {
       // Build order stats map for O(1) lookup
       const orderStatsMap = new Map<string, { count: number; total: number; lastOrder: string | null }>();
       
-      if (orders && Array.isArray(orders)) {
-        orders.forEach((order: { customer_email: string; total_amount: number; created_at: string }) => {
+      if (orders) {
+        orders.forEach((order) => {
           const email = order.customer_email;
           const existing = orderStatsMap.get(email) || { count: 0, total: 0, lastOrder: null };
           
@@ -160,7 +136,7 @@ export function useAdminCustomers() {
       }
 
       // Map profiles to customers with stats (optimized)
-      const customersWithStats: CustomerWithStats[] = (profiles || []).map((profile: any) => {
+      const customersWithStats: CustomerWithStats[] = customerProfiles.map((profile: any) => {
         const stats = orderStatsMap.get(profile.email) || { count: 0, total: 0, lastOrder: null };
         
         return {
