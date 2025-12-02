@@ -164,8 +164,33 @@ export function useAdminCustomers() {
       });
       setCustomers(customersWithStats);
     } catch (err) {
-      console.error('Fetch customers error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch customers';
+      console.error('❌ Fetch customers error:', err);
+      console.error('Error type:', typeof err);
+      console.error('Error details:', JSON.stringify(err, null, 2));
+      
+      let errorMessage = 'Failed to fetch customers';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        console.error('Error name:', err.name);
+        console.error('Error stack:', err.stack);
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String(err.message);
+      } else if (err && typeof err === 'object' && 'code' in err) {
+        const code = String(err.code);
+        const message = 'message' in err ? String(err.message) : '';
+        errorMessage = `Error ${code}: ${message || 'Unknown error'}`;
+      }
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('permission denied') || errorMessage.includes('42501')) {
+        errorMessage = 'Permission denied. Make sure you are logged in as an admin or staff member and that your user profile has the correct role.';
+      } else if (errorMessage.includes('JWT') || errorMessage.includes('PGRST301')) {
+        errorMessage = 'Authentication required. Please log in again.';
+      } else if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+        errorMessage = 'Database table not found. Please run the database migrations.';
+      }
+      
       setError(errorMessage);
       // Only fallback to demo data if Supabase is not configured
       // Otherwise, show empty array so user knows there's an issue
