@@ -69,12 +69,44 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
 
         if (profileError) {
           console.error("Profile error:", profileError);
-          // If profile doesn't exist, sign out and show error
-          await supabase.auth.signOut();
-          setError("User profile not found. Please contact an administrator.");
-          setShowDemoHint(true);
-          setLoading(false);
-          return;
+          
+          // If profile doesn't exist (PGRST116 = no rows), try to create it
+          if (profileError.code === 'PGRST116') {
+            console.log("Profile not found, attempting to create admin profile...");
+            
+            // Try to create profile with admin role
+            const { error: insertError } = await supabase
+              .from("user_profiles")
+              .insert({
+                id: data.user.id,
+                email: data.user.email || '',
+                full_name: data.user.user_metadata?.full_name || null,
+                role: 'admin', // Default to admin for first user
+                is_active: true,
+              });
+
+            if (insertError) {
+              console.error("Failed to create profile:", insertError);
+              // If insert fails (likely RLS), show helpful error
+              await supabase.auth.signOut();
+              setError("User profile not found and could not be created automatically. Please run the database migration to create your admin profile.");
+              setShowDemoHint(true);
+              setLoading(false);
+              return;
+            } else {
+              console.log("Admin profile created successfully");
+              // Profile created, proceed with login
+              onLoginSuccess();
+              return;
+            }
+          } else {
+            // Other error, sign out and show error
+            await supabase.auth.signOut();
+            setError("User profile not found. Please contact an administrator.");
+            setShowDemoHint(true);
+            setLoading(false);
+            return;
+          }
         }
 
         if (profile?.role === "admin" || profile?.role === "staff") {

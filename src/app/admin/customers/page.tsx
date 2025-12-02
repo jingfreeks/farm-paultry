@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAdminCustomers } from "@/hooks/useAdminCustomers";
 
 export default function CustomersPage() {
-  const { customers, loading, error } = useAdminCustomers();
+  const { customers, loading, error, refetch } = useAdminCustomers();
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredCustomers = customers.filter(
@@ -47,8 +47,12 @@ export default function CustomersPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600">
-          Error loading customers: {error}
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <h3 className="font-semibold text-red-800 mb-2">Error loading customers</h3>
+          <p className="text-red-600">{error}</p>
+          <p className="text-sm text-red-500 mt-2">
+            Make sure you are logged in as an admin and that the database migrations have been run.
+          </p>
         </div>
       </div>
     );
@@ -62,6 +66,15 @@ export default function CustomersPage() {
           <h1 className="font-serif text-3xl font-bold text-bark">Customers</h1>
           <p className="text-charcoal/60">View and manage customer information</p>
         </div>
+        <button
+          onClick={() => refetch()}
+          className="px-4 py-2 bg-olive text-cream rounded-xl font-medium hover:bg-olive-dark transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
       </div>
 
       {/* Stats */}
@@ -181,10 +194,35 @@ export default function CustomersPage() {
                   </td>
                 </tr>
               ))}
-              {filteredCustomers.length === 0 && (
+              {filteredCustomers.length === 0 && customers.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <svg className="w-12 h-12 text-charcoal/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                      <p className="text-charcoal/60 font-medium text-lg">No customers found</p>
+                      <p className="text-sm text-charcoal/40 max-w-md">
+                        {searchTerm 
+                          ? 'Try a different search term or clear the search to see all customers.' 
+                          : 'No user profiles exist yet. Users will appear here after they sign up. Make sure the database migrations have been run and that users have created accounts.'}
+                      </p>
+                      {!searchTerm && (
+                        <button
+                          onClick={() => refetch()}
+                          className="mt-2 px-4 py-2 bg-olive text-cream rounded-lg font-medium hover:bg-olive-dark transition-colors text-sm"
+                        >
+                          Refresh Data
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {filteredCustomers.length === 0 && customers.length > 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-charcoal/60">
-                    No customers found
+                    No customers match your search
                   </td>
                 </tr>
               )}

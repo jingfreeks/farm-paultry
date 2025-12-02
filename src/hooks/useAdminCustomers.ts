@@ -81,35 +81,73 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
-      // Fetch all user profiles (customers, staff, admins)
+      // Fetch only customer profiles with selected fields (optimized)
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
+        .eq('role', 'customer')
         .order('created_at', { ascending: false });
+      console.log('Query result - profiles:', profiles);
+      console.log('Query result - error:', profilesError);
+      
+      if (profilesError) {
+        console.error('Error fetching user_profiles:', profilesError);
+        console.error('Error code:', profilesError.code);
+        console.error('Error message:', profilesError.message);
+        
+        if (profilesError.code === '42501' || profilesError.message.includes('permission denied')) {
+          throw new Error('Permission denied. Make sure you are logged in as an admin or staff member.');
+        }
+        if (profilesError.code === 'PGRST301' || profilesError.message.includes('JWT')) {
+          throw new Error('Authentication required. Please log in again.');
+        }
+        throw profilesError;
+      }
 
-      if (profilesError) throw profilesError;
+      // Filter customers in memory as fallback if needed
+      const customerProfiles = (profiles || []).filter((p: any) => p.role === 'customer');
+      console.log('Filtered customer profiles:', customerProfiles.length, 'out of', profiles?.length || 0);
 
-      // Fetch all orders to calculate statistics
+      if (!customerProfiles || customerProfiles.length === 0) {
+        console.warn('No customer profiles found. Total profiles:', profiles?.length || 0);
+        setCustomers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch order statistics grouped by customer email (optimized)
+      // Only fetch what we need: email, count, sum, and max date
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('customer_email, total_amount, created_at')
-        .order('created_at', { ascending: false });
+        .select('customer_email, total_amount, created_at');
 
-      if (ordersError) throw ordersError;
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        // Continue without order stats
+      }
 
-      // Calculate order statistics for each customer
-      const customersWithStats: CustomerWithStats[] = (profiles || []).map((profile) => {
-        const customerOrders = (orders || []).filter(
-          (order) => order.customer_email === profile.email
-        );
+      // Build order stats map for O(1) lookup
+      const orderStatsMap = new Map<string, { count: number; total: number; lastOrder: string | null }>();
+      
+      if (orders && Array.isArray(orders)) {
+        orders.forEach((order: any) => {
+          const email = order.customer_email;
+          const existing = orderStatsMap.get(email) || { count: 0, total: 0, lastOrder: null };
+          
+          orderStatsMap.set(email, {
+            count: existing.count + 1,
+            total: existing.total + (order.total_amount || 0),
+            lastOrder: existing.lastOrder 
+              ? (order.created_at > existing.lastOrder ? order.created_at : existing.lastOrder)
+              : order.created_at,
+          });
+        });
+      }
 
-        const totalSpent = customerOrders.reduce(
-          (sum, order) => sum + (order.total_amount || 0),
-          0
-        );
-
-        const lastOrder = customerOrders.length > 0 ? customerOrders[0].created_at : null;
-
+      // Map profiles to customers with stats (optimized)
+      const customersWithStats: CustomerWithStats[] = customerProfiles.map((profile: any) => {
+        const stats = orderStatsMap.get(profile.email) || { count: 0, total: 0, lastOrder: null };
+        
         return {
           id: profile.id,
           email: profile.email,
@@ -119,18 +157,23 @@ export function useAdminCustomers() {
           is_active: profile.is_active,
           created_at: profile.created_at,
           updated_at: profile.updated_at,
-          orders: customerOrders.length,
-          total_spent: totalSpent,
-          last_order: lastOrder,
+          orders: stats.count,
+          total_spent: stats.total,
+          last_order: stats.lastOrder,
         };
       });
-
       setCustomers(customersWithStats);
     } catch (err) {
       console.error('Fetch customers error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch customers');
-      // Fallback to demo data
-      setCustomers(demoCustomers);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch customers';
+      setError(errorMessage);
+      // Only fallback to demo data if Supabase is not configured
+      // Otherwise, show empty array so user knows there's an issue
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        setCustomers(demoCustomers);
+      } else {
+        setCustomers([]);
+      }
     } finally {
       setLoading(false);
     }
