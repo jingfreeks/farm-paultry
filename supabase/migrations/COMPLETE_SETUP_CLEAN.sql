@@ -313,6 +313,10 @@ END $$;
 DROP POLICY IF EXISTS "Users can insert own customer" ON customers;
 DROP POLICY IF EXISTS "Users can update own customer" ON customers;
 DROP POLICY IF EXISTS "Users can view own customer" ON customers;
+DROP POLICY IF EXISTS "Admins can view all customers" ON customers;
+DROP POLICY IF EXISTS "Admins can insert customers" ON customers;
+DROP POLICY IF EXISTS "Admins can update all customers" ON customers;
+DROP POLICY IF EXISTS "Admins can delete customers" ON customers;
 
 -- Allow users to insert their own customer record
 CREATE POLICY "Users can insert own customer" ON customers
@@ -326,6 +330,19 @@ CREATE POLICY "Users can update own customer" ON customers
 -- Allow users to view their own customer record
 CREATE POLICY "Users can view own customer" ON customers
   FOR SELECT USING (email = auth.jwt()->>'email');
+
+-- Admin policies for customers
+CREATE POLICY "Admins can view all customers" ON customers
+  FOR SELECT USING (is_admin());
+
+CREATE POLICY "Admins can insert customers" ON customers
+  FOR INSERT WITH CHECK (is_admin());
+
+CREATE POLICY "Admins can update all customers" ON customers
+  FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE POLICY "Admins can delete customers" ON customers
+  FOR DELETE USING (is_admin());
 
 -- Note: The handle_new_user() trigger function uses SECURITY DEFINER
 -- which bypasses RLS, so it can insert into customers without needing a policy
