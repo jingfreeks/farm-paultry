@@ -139,8 +139,8 @@ export function useAdminCustomers() {
             .rpc('get_all_user_profiles');
           
           if (!rpcError && rpcData && Array.isArray(rpcData)) {
-            console.log('✅ RPC function succeeded:', rpcData.length, 'profiles');
-            profiles = rpcData;
+            console.log('✅ RPC function succeeded:', (rpcData as any[]).length, 'profiles');
+            profiles = rpcData as any[];
             profilesError = null;
           } else {
             console.error('❌ RPC function also failed:', rpcError);
