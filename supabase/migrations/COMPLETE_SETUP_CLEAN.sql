@@ -192,10 +192,17 @@ BEGIN
           full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
           updated_at = NOW();
       END IF;
+      
+      -- Log success for debugging
+      RAISE NOTICE 'Successfully created/updated customer record for email %', user_email;
     EXCEPTION WHEN OTHERS THEN
-      -- Log error but don't fail user creation
-      RAISE WARNING 'Error creating customer record for email %: %', user_email, SQLERRM;
+      -- Log detailed error for debugging
+      RAISE WARNING 'Error creating customer record for email %: % (SQLSTATE: %)', user_email, SQLERRM, SQLSTATE;
+      -- Try to get more details about the error
+      RAISE WARNING 'Customer insert failed - email: %, full_name: %, user_id: %', user_email, user_full_name, NEW.id;
     END;
+  ELSE
+    RAISE WARNING 'Skipping customer creation - email is null or empty for user %', NEW.id;
   END IF;
 
   RETURN NEW;
@@ -303,6 +310,9 @@ CREATE POLICY "Users can update own customer" ON customers
 -- Allow users to view their own customer record
 CREATE POLICY "Users can view own customer" ON customers
   FOR SELECT USING (email = auth.jwt()->>'email');
+
+-- Note: The handle_new_user() trigger function uses SECURITY DEFINER
+-- which bypasses RLS, so it can insert into customers without needing a policy
 
 -- ============================================
 -- STEP 5: Create profiles for existing users who don't have one
