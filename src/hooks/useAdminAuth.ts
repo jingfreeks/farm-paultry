@@ -109,12 +109,13 @@ export function useAdminAuth() {
         .single();
 
       if (profile) {
-        const isAdmin = profile.role === 'admin' || profile.role === 'staff';
+        const profileData = profile as UserProfile;
+        const isAdmin = profileData.role === 'admin' || profileData.role === 'staff';
         // Merge auth user data with profile, prioritizing auth user's full_name
-        const mergedProfile = {
-          ...profile,
-          full_name: user.user_metadata?.full_name || profile.full_name,
-          email: user.email || profile.email,
+        const mergedProfile: UserProfile = {
+          ...profileData,
+          full_name: user.user_metadata?.full_name || profileData.full_name || null,
+          email: user.email || profileData.email,
         };
         setState({
           isAuthenticated: true,

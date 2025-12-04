@@ -223,11 +223,13 @@ export default function AdminLayout({
               </button>
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream font-bold">
-                  {userProfile?.full_name?.charAt(0) || 'A'}
+                  {(authUser?.user_metadata?.full_name || userProfile?.full_name || authUser?.email || userProfile?.email || 'A').charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-bark">{userProfile?.full_name || 'Admin'}</p>
-                  <p className="text-xs text-charcoal/60">{userProfile?.email}</p>
+                  <p className="text-sm font-medium text-bark">
+                    {authUser?.user_metadata?.full_name || userProfile?.full_name || authUser?.email || 'Admin'}
+                  </p>
+                  <p className="text-xs text-charcoal/60">{authUser?.email || userProfile?.email}</p>
                 </div>
               </div>
             </div>
