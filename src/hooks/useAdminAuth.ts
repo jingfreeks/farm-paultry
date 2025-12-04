@@ -22,6 +22,7 @@ export interface AdminAuthState {
   isAdmin: boolean;
   loading: boolean;
   userProfile: UserProfile | null;
+  authUser: { id: string; email: string; user_metadata?: { full_name?: string } } | null;
 }
 
 export function useAdminAuth() {
@@ -30,6 +31,7 @@ export function useAdminAuth() {
     isAdmin: false,
     loading: true,
     userProfile: null,
+    authUser: null,
   });
 
   const checkAuth = useCallback(async () => {
@@ -44,6 +46,11 @@ export function useAdminAuth() {
             isAdmin: true,
             loading: false,
             userProfile: DEMO_ADMIN,
+            authUser: {
+              id: 'demo-admin',
+              email: 'admin@goldenharvest.com',
+              user_metadata: { full_name: 'Demo Admin' },
+            },
           });
         } else {
           setState({
@@ -51,6 +58,7 @@ export function useAdminAuth() {
             isAdmin: false,
             loading: false,
             userProfile: null,
+            authUser: null,
           });
         }
         return;
@@ -68,6 +76,11 @@ export function useAdminAuth() {
             isAdmin: true,
             loading: false,
             userProfile: DEMO_ADMIN,
+            authUser: {
+              id: 'demo-admin',
+              email: 'admin@goldenharvest.com',
+              user_metadata: { full_name: 'Demo Admin' },
+            },
           });
         } else {
           setState({
@@ -75,10 +88,18 @@ export function useAdminAuth() {
             isAdmin: false,
             loading: false,
             userProfile: null,
+            authUser: null,
           });
         }
         return;
       }
+
+      // Store auth user data
+      const authUserData = {
+        id: user.id,
+        email: user.email || '',
+        user_metadata: user.user_metadata || {},
+      };
 
       // Get user profile
       const { data: profile } = await supabase
@@ -89,11 +110,18 @@ export function useAdminAuth() {
 
       if (profile) {
         const isAdmin = profile.role === 'admin' || profile.role === 'staff';
+        // Merge auth user data with profile, prioritizing auth user's full_name
+        const mergedProfile = {
+          ...profile,
+          full_name: user.user_metadata?.full_name || profile.full_name,
+          email: user.email || profile.email,
+        };
         setState({
           isAuthenticated: true,
           isAdmin,
           loading: false,
-          userProfile: profile,
+          userProfile: mergedProfile,
+          authUser: authUserData,
         });
       } else {
         setState({
@@ -101,6 +129,7 @@ export function useAdminAuth() {
           isAdmin: false,
           loading: false,
           userProfile: null,
+          authUser: authUserData,
         });
       }
     } catch (err) {
@@ -113,6 +142,11 @@ export function useAdminAuth() {
           isAdmin: true,
           loading: false,
           userProfile: DEMO_ADMIN,
+          authUser: {
+            id: 'demo-admin',
+            email: 'admin@goldenharvest.com',
+            user_metadata: { full_name: 'Demo Admin' },
+          },
         });
       } else {
         setState({
@@ -120,6 +154,7 @@ export function useAdminAuth() {
           isAdmin: false,
           loading: false,
           userProfile: null,
+          authUser: null,
         });
       }
     }
@@ -142,6 +177,7 @@ export function useAdminAuth() {
         isAdmin: false,
         loading: false,
         userProfile: null,
+        authUser: null,
       });
     } catch (err) {
       console.error('Logout error:', err);
