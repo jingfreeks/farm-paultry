@@ -95,16 +95,72 @@ export function useAdminCustomers() {
         console.log('👤 Profile check error:', profileCheckError);
       }
 
+      // Test if is_admin() function works
+      console.log('🧪 Testing is_admin() function...');
+      const { data: isAdminResult, error: isAdminError } = await supabase
+        .rpc('is_admin');
+      console.log('🧪 is_admin() result:', isAdminResult, 'error:', isAdminError);
+
       // Fetch all user profiles (admins should see all users, not just customers)
       // Remove the role filter so admins can see all users including other admins and staff
       console.log('📊 Fetching all user profiles...');
-      const { data: profiles, error: profilesError } = await supabase
+      
+      // Try the query
+      let profiles: any[] | null = null;
+      let profilesError: any = null;
+      
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
         .order('created_at', { ascending: false });
+      
+      profiles = data;
+      profilesError = error;
+      
       console.log('✅ Query result - profiles:', profiles);
       console.log('❌ Query result - error:', profilesError);
       console.log('📈 Profiles count:', profiles?.length || 0);
+      
+      // If we got an error, try to get more details
+      if (profilesError) {
+        console.error('🔍 Detailed error info:', {
+          code: profilesError.code,
+          message: profilesError.message,
+          details: profilesError.details,
+          hint: profilesError.hint,
+        });
+        
+        // If it's a permission error, try RPC function as fallback
+        if (profilesError.code === '42501' || profilesError.message?.includes('permission denied')) {
+          console.warn('⚠️ Permission denied - RLS might be blocking. Trying RPC function...');
+          
+          // Try using the RPC function that bypasses RLS
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('get_all_user_profiles');
+          
+          if (!rpcError && rpcData) {
+            console.log('✅ RPC function succeeded:', rpcData.length, 'profiles');
+            profiles = rpcData;
+            profilesError = null;
+          } else {
+            console.error('❌ RPC function also failed:', rpcError);
+            // Try querying with explicit role check as last resort
+            const { data: altData, error: altError } = await supabase
+              .from('user_profiles')
+              .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
+              .or('role.eq.admin,role.eq.staff,role.eq.customer')
+              .order('created_at', { ascending: false });
+            
+            if (!altError && altData) {
+              console.log('✅ Alternative query succeeded:', altData.length, 'profiles');
+              profiles = altData;
+              profilesError = null;
+            } else {
+              console.error('❌ Alternative query also failed:', altError);
+            }
+          }
+        }
+      }
       
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
