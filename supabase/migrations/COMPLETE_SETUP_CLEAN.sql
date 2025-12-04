@@ -75,18 +75,34 @@ CREATE POLICY "Users can insert own profile" ON user_profiles
 -- Helper function to check admin status (bypasses RLS to prevent recursion)
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN AS $$
+DECLARE
+  user_id UUID;
+  is_admin_result BOOLEAN;
 BEGIN
+  -- Get the current user ID
+  user_id := auth.uid();
+  
+  -- If no user is authenticated, return false
+  IF user_id IS NULL THEN
+    RETURN false;
+  END IF;
+  
   -- Use SECURITY DEFINER to bypass RLS when checking admin status
-  -- Include both admin and staff roles
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid() AND (role = 'admin' OR role = 'staff')
-  );
+  -- Query directly from user_profiles without triggering RLS
+  SELECT EXISTS (
+    SELECT 1 
+    FROM user_profiles
+    WHERE id = user_id 
+      AND (role = 'admin' OR role = 'staff')
+      AND is_active = true
+  ) INTO is_admin_result;
+  
+  RETURN COALESCE(is_admin_result, false);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Grant execute to authenticated users
-GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
+-- Grant execute to authenticated users and anon (for public access if needed)
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated, anon;
 
 -- Admins can view all profiles
 CREATE POLICY "Admins can view all profiles" ON user_profiles
