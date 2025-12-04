@@ -81,14 +81,30 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
+      // First, check if user is authenticated and get their profile
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('🔐 Current auth user:', authUser?.id, authUser?.email);
+      
+      if (authUser) {
+        const { data: currentUserProfile, error: profileCheckError } = await supabase
+          .from('user_profiles')
+          .select('id, email, role, is_active')
+          .eq('id', authUser.id)
+          .single();
+        console.log('👤 Current user profile:', currentUserProfile);
+        console.log('👤 Profile check error:', profileCheckError);
+      }
+
       // Fetch all user profiles (admins should see all users, not just customers)
       // Remove the role filter so admins can see all users including other admins and staff
+      console.log('📊 Fetching all user profiles...');
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
         .order('created_at', { ascending: false });
-      console.log('Query result - profiles:', profiles);
-      console.log('Query result - error:', profilesError);
+      console.log('✅ Query result - profiles:', profiles);
+      console.log('❌ Query result - error:', profilesError);
+      console.log('📈 Profiles count:', profiles?.length || 0);
       
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
@@ -107,10 +123,15 @@ export function useAdminCustomers() {
       // Use all profiles (admins can see all users)
       // Optionally filter to only customers if needed, but for admin dashboard, show all
       const allProfiles = profiles || [];
-      console.log('Total profiles found:', allProfiles.length);
+      console.log('📋 Total profiles found:', allProfiles.length);
+      console.log('📋 Profile details:', allProfiles.map(p => ({ id: p.id, email: p.email, role: p.role })));
 
       if (!allProfiles || allProfiles.length === 0) {
-        console.warn('No profiles found.');
+        console.warn('⚠️ No profiles found. This could mean:');
+        console.warn('  1. No users have signed up yet');
+        console.warn('  2. RLS policies are blocking the query');
+        console.warn('  3. The user_profiles table is empty');
+        console.warn('  4. The current user is not an admin');
         setCustomers([]);
         setLoading(false);
         return;
