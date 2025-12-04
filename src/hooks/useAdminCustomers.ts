@@ -138,7 +138,7 @@ export function useAdminCustomers() {
           const { data: rpcData, error: rpcError } = await supabase
             .rpc('get_all_user_profiles');
           
-          if (!rpcError && rpcData) {
+          if (!rpcError && rpcData && Array.isArray(rpcData)) {
             console.log('✅ RPC function succeeded:', rpcData.length, 'profiles');
             profiles = rpcData;
             profilesError = null;
