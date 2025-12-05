@@ -57,6 +57,57 @@ CREATE POLICY "Public avatar access" ON storage.objects
   TO public
   USING (bucket_id = 'avatars');
 
+-- Policy 5: Admins can upload company logos
+CREATE POLICY "Admins can upload company logos" ON storage.objects
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'avatars' AND
+    (storage.foldername(name))[1] = 'company' AND
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.id = auth.uid()
+      AND user_profiles.role IN ('admin', 'staff')
+    )
+  );
+
+-- Policy 6: Admins can update company logos
+CREATE POLICY "Admins can update company logos" ON storage.objects
+  FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'avatars' AND
+    (storage.foldername(name))[1] = 'company' AND
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.id = auth.uid()
+      AND user_profiles.role IN ('admin', 'staff')
+    )
+  )
+  WITH CHECK (
+    bucket_id = 'avatars' AND
+    (storage.foldername(name))[1] = 'company' AND
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.id = auth.uid()
+      AND user_profiles.role IN ('admin', 'staff')
+    )
+  );
+
+-- Policy 7: Admins can delete company logos
+CREATE POLICY "Admins can delete company logos" ON storage.objects
+  FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'avatars' AND
+    (storage.foldername(name))[1] = 'company' AND
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.id = auth.uid()
+      AND user_profiles.role IN ('admin', 'staff')
+    )
+  );
+
 -- Instructions for creating the bucket via Dashboard:
 -- 1. Go to Supabase Dashboard → Storage
 -- 2. Click "New bucket"
