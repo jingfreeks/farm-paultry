@@ -125,6 +125,10 @@ export default function ProfilePage() {
         });
 
       if (uploadError) {
+        // Check if bucket doesn't exist
+        if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
+          throw new Error('Storage bucket "avatars" not found. Please create it in Supabase Dashboard → Storage. See setup instructions in the migration file.');
+        }
         throw uploadError;
       }
 
@@ -145,7 +149,14 @@ export default function ProfilePage() {
         throw new Error(result.error || 'Failed to update profile picture');
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to upload image';
+      let errorMsg = 'Failed to upload image';
+      if (err instanceof Error) {
+        errorMsg = err.message;
+        // Provide helpful instructions for bucket not found
+        if (err.message.includes('Bucket not found') || err.message.includes('not found')) {
+          errorMsg = 'Storage bucket not set up. Please create "avatars" bucket in Supabase Dashboard → Storage, or run: node scripts/setup-avatar-bucket.js';
+        }
+      }
       setError(errorMsg);
       console.error('Image upload error:', err);
     } finally {
