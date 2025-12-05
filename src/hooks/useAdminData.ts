@@ -218,10 +218,68 @@ export function useAdminProducts() {
     return updateProduct(productId, { stock });
   };
 
+  const createProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        const newProduct: Product = {
+          ...productData,
+          id: `demo-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setProducts(prev => [newProduct, ...prev]);
+        return { success: true, data: newProduct };
+      }
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('products')
+        .insert([productData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      await fetchProducts();
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to create product' };
+    }
+  };
+
+  const deleteProduct = async (productId: string) => {
+    try {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        setProducts(prev => prev.filter(p => p.id !== productId));
+        return { success: true };
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) throw error;
+      await fetchProducts();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to delete product' };
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  return { products, loading, error, refetch: fetchProducts, updateProduct, updateStock };
+  return { 
+    products, 
+    loading, 
+    error, 
+    refetch: fetchProducts, 
+    updateProduct, 
+    updateStock,
+    createProduct,
+    deleteProduct,
+  };
 }
 
