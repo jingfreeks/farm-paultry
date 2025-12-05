@@ -76,7 +76,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const { error } = await signUp(email, password, fullName);
     
     if (error) {
-      setError(error.message);
+      // Provide more helpful error messages
+      let errorMessage = error.message;
+      if (error.message.includes('database') || error.message.includes('Database')) {
+        errorMessage = "There was an issue creating your account. Please try again or contact support.";
+      } else if (error.message.includes('email')) {
+        errorMessage = "This email is already registered. Please sign in instead.";
+      } else if (error.message.includes('password')) {
+        errorMessage = "Password is too weak. Please use a stronger password.";
+      }
+      setError(errorMessage);
+      console.error("Signup error:", error);
     } else {
       setSuccess("Check your email to confirm your account!");
       setEmail("");

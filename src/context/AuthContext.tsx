@@ -43,6 +43,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Ensure user_profile exists (fallback if trigger failed)
+        if (session?.user && (event === 'SIGNED_IN' || event === 'SIGNED_UP' || event === 'TOKEN_REFRESHED')) {
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .eq('id', session.user.id)
+              .single();
+
+            // If profile doesn't exist, create it
+            if (profileError && profileError.code === 'PGRST116') {
+              const { error: insertError } = await supabase
+                .from('user_profiles')
+                .insert({
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  full_name: session.user.user_metadata?.full_name || null,
+                  role: 'customer',
+                  is_active: true,
+                });
+
+              if (insertError) {
+                console.warn('Failed to create user profile on auth state change:', insertError);
+              }
+            }
+          } catch (profileCheckError) {
+            console.warn('Error checking/creating user profile on auth state change:', profileCheckError);
+          }
+        }
+        
         setLoading(false);
       }
     );
@@ -66,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -75,7 +106,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         },
       });
-      return { error: error as Error | null };
+
+      if (error) {
+        return { error: error as Error };
+      }
+
+      // Ensure user_profile and customer records are created (fallback if trigger fails)
+      if (data.user) {
+        try {
+          // Wait longer for the trigger to run, then check if records exist
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check and create user_profile
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .single();
+
+          if (profileError && profileError.code === 'PGRST116') {
+            console.log('Profile not found, creating user_profile...');
+            const { error: insertError } = await supabase
+              .from('user_profiles')
+              .insert({
+                id: data.user.id,
+                email: data.user.email || email,
+                full_name: fullName || data.user.user_metadata?.full_name || null,
+                role: 'customer',
+                is_active: true,
+              });
+
+            if (insertError) {
+              console.error('Failed to create user profile:', insertError);
+            } else {
+              console.log('User profile created successfully');
+            }
+          } else if (profile) {
+            console.log('User profile already exists');
+          }
+
+          // Also ensure customer record exists
+          if (data.user.email) {
+            try {
+              // Check if customer exists
+              const { data: customer, error: customerError } = await supabase
+                .from('customers')
+                .select('id, email')
+                .eq('email', data.user.email)
+                .maybeSingle();
+
+              // If customer doesn't exist, create it
+              if (!customer && (customerError?.code === 'PGRST116' || !customerError)) {
+                console.log('Customer not found, creating customer record...');
+                
+                // Ensure we have a profile first
+                const { data: profileForCustomer } = await supabase
+                  .from('user_profiles')
+                  .select('id')
+                  .eq('id', data.user.id)
+                  .single();
+
+                const customerData: any = {
+                  email: data.user.email,
+                  full_name: fullName || data.user.user_metadata?.full_name || null,
+                };
+
+                // Add user_profile_id if we have a profile
+                if (profileForCustomer) {
+                  customerData.user_profile_id = data.user.id;
+                }
+
+                const { error: customerInsertError, data: insertedCustomer } = await supabase
+                  .from('customers')
+                  .insert(customerData)
+                  .select();
+
+                if (customerInsertError) {
+                  console.error('Failed to create customer record:', customerInsertError);
+                  console.error('Customer data attempted:', customerData);
+                } else {
+                  console.log('Customer record created successfully:', insertedCustomer);
+                }
+              } else if (customer) {
+                console.log('Customer record already exists');
+              } else if (customerError) {
+                console.error('Error checking customer:', customerError);
+              }
+            } catch (customerCheckError) {
+              console.error('Exception checking/creating customer record:', customerCheckError);
+            }
+          } else {
+            console.warn('User email is missing, cannot create customer record');
+          }
+        } catch (profileCheckError) {
+          console.error('Exception checking/creating user profile:', profileCheckError);
+          // Don't fail signup if profile check fails
+        }
+      }
+      
+      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }

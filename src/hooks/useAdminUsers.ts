@@ -38,23 +38,46 @@ export function useAdminUsers() {
       setLoading(true);
       setError(null);
 
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      // Check if Supabase is configured
+      const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!hasSupabaseConfig) {
+        // Demo mode - use demo users
         setUsers(demoUsers);
         setLoading(false);
         return;
       }
 
+      // Try to fetch from Supabase
       const supabase = createClient();
       const { data, error: fetchError } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-      setUsers(data || demoUsers);
+      if (fetchError) {
+        // If table doesn't exist or RLS blocks access, use demo users
+        console.warn('Failed to fetch users from Supabase, using demo data:', fetchError.message);
+        setUsers(demoUsers);
+        setError(`Unable to fetch users: ${fetchError.message}. Showing demo data.`);
+        setLoading(false);
+        return;
+      }
+
+      // If we got data, use it; otherwise fallback to demo
+      if (data && data.length > 0) {
+        setUsers(data);
+        setError(null);
+      } else {
+        // No users found, use demo data
+        setUsers(demoUsers);
+        setError('No users found. Showing demo data.');
+      }
     } catch (err) {
       console.error('Fetch users error:', err);
+      // Always fallback to demo users on error
       setUsers(demoUsers);
+      setError(err instanceof Error ? `Error: ${err.message}. Showing demo data.` : 'Failed to fetch users. Showing demo data.');
     } finally {
       setLoading(false);
     }
@@ -191,56 +214,5 @@ export function useAdminUsers() {
     toggleUserStatus,
     changeUserRole,
   };
-}
-
-// Hook to check if current user is admin
-export function useIsAdmin() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-
-  useEffect(() => {
-    async function checkAdmin() {
-      try {
-        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-          // Demo mode - assume admin access
-          setIsAdmin(true);
-          setUserProfile(demoUsers[0]);
-          setLoading(false);
-          return;
-        }
-
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-          setIsAdmin(false);
-          setLoading(false);
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (profile) {
-          setUserProfile(profile);
-          setIsAdmin(profile.role === 'admin' || profile.role === 'staff');
-        }
-      } catch (err) {
-        console.error('Admin check error:', err);
-        // In demo mode, allow access
-        setIsAdmin(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    checkAdmin();
-  }, []);
-
-  return { isAdmin, loading, userProfile };
 }
 

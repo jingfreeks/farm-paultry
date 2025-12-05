@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { CartProvider } from "@/context/CartContext";
-import { AuthProvider } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Products from "@/components/Products";
@@ -21,40 +19,36 @@ export default function Home() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   return (
-    <AuthProvider>
-      <CartProvider>
-        <div className="min-h-screen bg-cream overflow-x-hidden">
-          <Header 
-            mobileMenuOpen={mobileMenuOpen} 
-            setMobileMenuOpen={setMobileMenuOpen}
-            onOpenAuth={() => setAuthModalOpen(true)}
-          />
-          <main>
-            <Hero />
-            <Products />
-            <About />
-            <Features />
-            <Testimonials />
-            <Contact />
-          </main>
-          <Footer />
-          
-          {/* Cart Drawer */}
-          <Cart onCheckout={() => setCheckoutOpen(true)} />
-          
-          {/* Auth Modal */}
-          <AuthModal 
-            isOpen={authModalOpen} 
-            onClose={() => setAuthModalOpen(false)} 
-          />
-          
-          {/* Checkout Modal */}
-          <Checkout
-            isOpen={checkoutOpen}
-            onClose={() => setCheckoutOpen(false)}
-          />
-        </div>
-      </CartProvider>
-    </AuthProvider>
+    <div className="min-h-screen bg-cream overflow-x-hidden">
+      <Header 
+        mobileMenuOpen={mobileMenuOpen} 
+        setMobileMenuOpen={setMobileMenuOpen} 
+        onOpenAuth={() => setAuthModalOpen(true)}
+      />
+      <main>
+        <Hero />
+        <Products />
+        <About />
+        <Features />
+        <Testimonials />
+        <Contact />
+      </main>
+      <Footer />
+      
+      {/* Cart Drawer */}
+      <Cart onCheckout={() => setCheckoutOpen(true)} />
+      
+      {/* Auth Modal */}
+      <AuthModal 
+        isOpen={authModalOpen} 
+        onClose={() => setAuthModalOpen(false)} 
+      />
+      
+      {/* Checkout Modal */}
+      <Checkout
+        isOpen={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+      />
+    </div>
   );
 }

@@ -1,46 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-// Demo customer data
-const demoCustomers = [
-  { id: '1', email: 'john@example.com', full_name: 'John Doe', phone: '+1234567890', orders: 5, total_spent: 456.50, last_order: '2024-01-15' },
-  { id: '2', email: 'jane@example.com', full_name: 'Jane Smith', phone: '+1987654321', orders: 3, total_spent: 234.00, last_order: '2024-01-12' },
-  { id: '3', email: 'bob@example.com', full_name: 'Bob Wilson', phone: null, orders: 8, total_spent: 892.75, last_order: '2024-01-10' },
-  { id: '4', email: 'alice@example.com', full_name: 'Alice Brown', phone: '+1122334455', orders: 2, total_spent: 89.99, last_order: '2024-01-08' },
-  { id: '5', email: 'charlie@example.com', full_name: 'Charlie Davis', phone: '+1555666777', orders: 12, total_spent: 1234.50, last_order: '2024-01-05' },
-];
-
-interface Customer {
-  id: string;
-  email: string;
-  full_name: string;
-  phone: string | null;
-  orders: number;
-  total_spent: number;
-  last_order: string;
-}
+import { useState } from "react";
+import { useAdminCustomers } from "@/hooks/useAdminCustomers";
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { customers, loading, error, refetch } = useAdminCustomers();
   const [searchTerm, setSearchTerm] = useState("");
-
-  useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setCustomers(demoCustomers);
-      setLoading(false);
-    }, 500);
-  }, []);
 
   const filteredCustomers = customers.filter(
     (c) =>
-      c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Never';
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -48,10 +23,55 @@ export default function CustomersPage() {
     });
   };
 
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'bg-red-100 text-red-800';
+      case 'staff':
+        return 'bg-blue-100 text-blue-800';
+      case 'customer':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-terracotta border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <h3 className="font-semibold text-red-800 mb-2">Error loading customers</h3>
+          <p className="text-red-600 mb-3">{error}</p>
+          <div className="mt-3 p-3 bg-red-100 rounded-lg">
+            <p className="text-xs text-red-700 font-mono break-all">
+              Check the browser console (F12) for detailed error logs.
+            </p>
+          </div>
+          <div className="text-sm text-red-500 space-y-2">
+            <p className="font-medium">Troubleshooting steps:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Make sure you are logged in as an admin or staff member</li>
+              <li>Verify your user profile has role='admin' or role='staff' in the database</li>
+              <li>Check that database migrations have been run (COMPLETE_SETUP_CLEAN.sql)</li>
+              <li>Open browser console (F12) for detailed error information</li>
+              <li>Try refreshing the page or logging out and back in</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -64,6 +84,15 @@ export default function CustomersPage() {
           <h1 className="font-serif text-3xl font-bold text-bark">Customers</h1>
           <p className="text-charcoal/60">View and manage customer information</p>
         </div>
+        <button
+          onClick={() => refetch()}
+          className="px-4 py-2 bg-olive text-cream rounded-xl font-medium hover:bg-olive-dark transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
       </div>
 
       {/* Stats */}
@@ -123,6 +152,9 @@ export default function CustomersPage() {
                   Contact
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-charcoal/70 uppercase tracking-wider">
+                  Role
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-charcoal/70 uppercase tracking-wider">
                   Orders
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-charcoal/70 uppercase tracking-wider">
@@ -140,12 +172,12 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-olive/10 rounded-full flex items-center justify-center">
                         <span className="font-bold text-olive">
-                          {customer.full_name.charAt(0)}
+                          {customer.full_name?.charAt(0) || customer.email.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-bark">{customer.full_name}</p>
-                        <p className="text-sm text-charcoal/60">ID: #{customer.id}</p>
+                        <p className="font-medium text-bark">{customer.full_name || 'No name'}</p>
+                        <p className="text-sm text-charcoal/60">ID: #{customer.id.slice(0, 8)}</p>
                       </div>
                     </div>
                   </td>
@@ -153,6 +185,18 @@ export default function CustomersPage() {
                     <div>
                       <p className="text-sm text-bark">{customer.email}</p>
                       <p className="text-sm text-charcoal/60">{customer.phone || "No phone"}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getRoleBadgeColor(customer.role)}`}>
+                        {customer.role}
+                      </span>
+                      {!customer.is_active && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          Inactive
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -168,10 +212,35 @@ export default function CustomersPage() {
                   </td>
                 </tr>
               ))}
-              {filteredCustomers.length === 0 && (
+              {filteredCustomers.length === 0 && customers.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-charcoal/60">
-                    No customers found
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <svg className="w-12 h-12 text-charcoal/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                      <p className="text-charcoal/60 font-medium text-lg">No customers found</p>
+                      <p className="text-sm text-charcoal/40 max-w-md">
+                        {searchTerm 
+                          ? 'Try a different search term or clear the search to see all customers.' 
+                          : 'No user profiles exist yet. Users will appear here after they sign up. Make sure the database migrations have been run and that users have created accounts.'}
+                      </p>
+                      {!searchTerm && (
+                        <button
+                          onClick={() => refetch()}
+                          className="mt-2 px-4 py-2 bg-olive text-cream rounded-lg font-medium hover:bg-olive-dark transition-colors text-sm"
+                        >
+                          Refresh Data
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {filteredCustomers.length === 0 && customers.length > 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-charcoal/60">
+                    No customers match your search
                   </td>
                 </tr>
               )}

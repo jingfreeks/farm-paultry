@@ -133,18 +133,16 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
                           </p>
                         </div>
                         <div className="py-2">
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              // Could navigate to profile page
-                            }}
+                          <Link
+                            href="/profile"
+                            onClick={() => setUserMenuOpen(false)}
                             className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                             My Profile
-                          </button>
+                          </Link>
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
@@ -223,22 +221,22 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
             )}
 
             {/* Menu Button */}
-            <button
-              type="button"
+          <button
+            type="button"
               className="p-2 text-charcoal"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <span className="sr-only">Toggle menu</span>
-              {mobileMenuOpen ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            <span className="sr-only">Toggle menu</span>
+            {mobileMenuOpen ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
           </div>
         </div>
 
@@ -327,7 +325,8 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
               </p>
             </div>
             <div className="py-2">
-              <button
+              <Link
+                href="/profile"
                 onClick={() => setUserMenuOpen(false)}
                 className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
               >
@@ -335,7 +334,7 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 My Profile
-              </button>
+              </Link>
               <button
                 onClick={() => setUserMenuOpen(false)}
                 className="w-full px-4 py-2 text-left text-sm text-charcoal hover:bg-wheat/50 transition-colors flex items-center gap-3"
