@@ -75,18 +75,34 @@ CREATE POLICY "Users can insert own profile" ON user_profiles
 -- Helper function to check admin status (bypasses RLS to prevent recursion)
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN AS $$
+DECLARE
+  user_id UUID;
+  is_admin_result BOOLEAN;
 BEGIN
+  -- Get the current user ID
+  user_id := auth.uid();
+  
+  -- If no user is authenticated, return false
+  IF user_id IS NULL THEN
+    RETURN false;
+  END IF;
+  
   -- Use SECURITY DEFINER to bypass RLS when checking admin status
-  -- Include both admin and staff roles
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid() AND (role = 'admin' OR role = 'staff')
-  );
+  -- Query directly from user_profiles without triggering RLS
+  SELECT EXISTS (
+    SELECT 1 
+    FROM user_profiles
+    WHERE id = user_id 
+      AND (role = 'admin' OR role = 'staff')
+      AND is_active = true
+  ) INTO is_admin_result;
+  
+  RETURN COALESCE(is_admin_result, false);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Grant execute to authenticated users
-GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
+-- Grant execute to authenticated users and anon (for public access if needed)
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated, anon;
 
 -- Admins can view all profiles
 CREATE POLICY "Admins can view all profiles" ON user_profiles
@@ -192,10 +208,17 @@ BEGIN
           full_name = COALESCE(EXCLUDED.full_name, customers.full_name),
           updated_at = NOW();
       END IF;
+      
+      -- Log success for debugging
+      RAISE NOTICE 'Successfully created/updated customer record for email %', user_email;
     EXCEPTION WHEN OTHERS THEN
-      -- Log error but don't fail user creation
-      RAISE WARNING 'Error creating customer record for email %: %', user_email, SQLERRM;
+      -- Log detailed error for debugging
+      RAISE WARNING 'Error creating customer record for email %: % (SQLSTATE: %)', user_email, SQLERRM, SQLSTATE;
+      -- Try to get more details about the error
+      RAISE WARNING 'Customer insert failed - email: %, full_name: %, user_id: %', user_email, user_full_name, NEW.id;
     END;
+  ELSE
+    RAISE WARNING 'Skipping customer creation - email is null or empty for user %', NEW.id;
   END IF;
 
   RETURN NEW;
@@ -290,6 +313,10 @@ END $$;
 DROP POLICY IF EXISTS "Users can insert own customer" ON customers;
 DROP POLICY IF EXISTS "Users can update own customer" ON customers;
 DROP POLICY IF EXISTS "Users can view own customer" ON customers;
+DROP POLICY IF EXISTS "Admins can view all customers" ON customers;
+DROP POLICY IF EXISTS "Admins can insert customers" ON customers;
+DROP POLICY IF EXISTS "Admins can update all customers" ON customers;
+DROP POLICY IF EXISTS "Admins can delete customers" ON customers;
 
 -- Allow users to insert their own customer record
 CREATE POLICY "Users can insert own customer" ON customers
@@ -303,6 +330,22 @@ CREATE POLICY "Users can update own customer" ON customers
 -- Allow users to view their own customer record
 CREATE POLICY "Users can view own customer" ON customers
   FOR SELECT USING (email = auth.jwt()->>'email');
+
+-- Admin policies for customers
+CREATE POLICY "Admins can view all customers" ON customers
+  FOR SELECT USING (is_admin());
+
+CREATE POLICY "Admins can insert customers" ON customers
+  FOR INSERT WITH CHECK (is_admin());
+
+CREATE POLICY "Admins can update all customers" ON customers
+  FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE POLICY "Admins can delete customers" ON customers
+  FOR DELETE USING (is_admin());
+
+-- Note: The handle_new_user() trigger function uses SECURITY DEFINER
+-- which bypasses RLS, so it can insert into customers without needing a policy
 
 -- ============================================
 -- STEP 5: Create profiles for existing users who don't have one

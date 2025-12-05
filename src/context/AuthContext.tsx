@@ -114,17 +114,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ensure user_profile and customer records are created (fallback if trigger fails)
       if (data.user) {
         try {
-          // Wait a bit for the trigger to run, then check if profile exists
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Wait longer for the trigger to run, then check if records exist
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
+          // Check and create user_profile
           const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('id')
             .eq('id', data.user.id)
             .single();
 
-          // If profile doesn't exist, create it
           if (profileError && profileError.code === 'PGRST116') {
+            console.log('Profile not found, creating user_profile...');
             const { error: insertError } = await supabase
               .from('user_profiles')
               .insert({
@@ -136,8 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
 
             if (insertError) {
-              console.warn('Failed to create user profile:', insertError);
+              console.error('Failed to create user profile:', insertError);
+            } else {
+              console.log('User profile created successfully');
             }
+          } else if (profile) {
+            console.log('User profile already exists');
           }
 
           // Also ensure customer record exists
@@ -146,13 +151,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               // Check if customer exists
               const { data: customer, error: customerError } = await supabase
                 .from('customers')
-                .select('id')
+                .select('id, email')
                 .eq('email', data.user.email)
-                .single();
+                .maybeSingle();
 
               // If customer doesn't exist, create it
-              if (customerError && customerError.code === 'PGRST116') {
-                // Check if user_profile_id column exists
+              if (!customer && (customerError?.code === 'PGRST116' || !customerError)) {
+                console.log('Customer not found, creating customer record...');
+                
+                // Ensure we have a profile first
                 const { data: profileForCustomer } = await supabase
                   .from('user_profiles')
                   .select('id')
@@ -164,25 +171,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   full_name: fullName || data.user.user_metadata?.full_name || null,
                 };
 
-                // Add user_profile_id if column exists and we have a profile
+                // Add user_profile_id if we have a profile
                 if (profileForCustomer) {
                   customerData.user_profile_id = data.user.id;
                 }
 
-                const { error: customerInsertError } = await supabase
+                const { error: customerInsertError, data: insertedCustomer } = await supabase
                   .from('customers')
-                  .insert(customerData);
+                  .insert(customerData)
+                  .select();
 
                 if (customerInsertError) {
-                  console.warn('Failed to create customer record:', customerInsertError);
+                  console.error('Failed to create customer record:', customerInsertError);
+                  console.error('Customer data attempted:', customerData);
+                } else {
+                  console.log('Customer record created successfully:', insertedCustomer);
                 }
+              } else if (customer) {
+                console.log('Customer record already exists');
+              } else if (customerError) {
+                console.error('Error checking customer:', customerError);
               }
             } catch (customerCheckError) {
-              console.warn('Error checking/creating customer record:', customerCheckError);
+              console.error('Exception checking/creating customer record:', customerCheckError);
             }
+          } else {
+            console.warn('User email is missing, cannot create customer record');
           }
         } catch (profileCheckError) {
-          console.warn('Error checking/creating user profile:', profileCheckError);
+          console.error('Exception checking/creating user profile:', profileCheckError);
           // Don't fail signup if profile check fails
         }
       }

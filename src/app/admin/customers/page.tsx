@@ -50,6 +50,11 @@ export default function CustomersPage() {
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <h3 className="font-semibold text-red-800 mb-2">Error loading customers</h3>
           <p className="text-red-600 mb-3">{error}</p>
+          <div className="mt-3 p-3 bg-red-100 rounded-lg">
+            <p className="text-xs text-red-700 font-mono break-all">
+              Check the browser console (F12) for detailed error logs.
+            </p>
+          </div>
           <div className="text-sm text-red-500 space-y-2">
             <p className="font-medium">Troubleshooting steps:</p>
             <ul className="list-disc list-inside space-y-1 ml-2">

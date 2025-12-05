@@ -49,7 +49,7 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const { isAuthenticated, isAdmin, loading, userProfile, checkAuth, logout } = useAdminAuth();
+  const { isAuthenticated, isAdmin, loading, userProfile, authUser, checkAuth, logout } = useAdminAuth();
 
   // Loading state
   if (loading) {
@@ -133,17 +133,17 @@ export default function AdminLayout({
         </div>
 
         {/* User Info */}
-        {userProfile && (
+        {(userProfile || authUser) && (
           <div className="px-6 py-4 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream font-bold">
-                {userProfile.full_name?.charAt(0) || userProfile.email.charAt(0).toUpperCase()}
+                {(authUser?.user_metadata?.full_name || userProfile?.full_name || authUser?.email || userProfile?.email || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-cream truncate">
-                  {userProfile.full_name || 'User'}
+                  {authUser?.user_metadata?.full_name || userProfile?.full_name || authUser?.email || 'User'}
                 </p>
-                <p className="text-xs text-cream/60 capitalize">{userProfile.role}</p>
+                <p className="text-xs text-cream/60 capitalize">{userProfile?.role || 'admin'}</p>
               </div>
             </div>
           </div>
@@ -223,11 +223,13 @@ export default function AdminLayout({
               </button>
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-olive rounded-full flex items-center justify-center text-cream font-bold">
-                  {userProfile?.full_name?.charAt(0) || 'A'}
+                  {(authUser?.user_metadata?.full_name || userProfile?.full_name || authUser?.email || userProfile?.email || 'A').charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-bark">{userProfile?.full_name || 'Admin'}</p>
-                  <p className="text-xs text-charcoal/60">{userProfile?.email}</p>
+                  <p className="text-sm font-medium text-bark">
+                    {authUser?.user_metadata?.full_name || userProfile?.full_name || authUser?.email || 'Admin'}
+                  </p>
+                  <p className="text-xs text-charcoal/60">{authUser?.email || userProfile?.email}</p>
                 </div>
               </div>
             </div>

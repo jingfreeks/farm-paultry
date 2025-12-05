@@ -81,14 +81,86 @@ export function useAdminCustomers() {
 
       const supabase = createClient();
 
-      // Fetch only customer profiles with selected fields (optimized)
-      const { data: profiles, error: profilesError } = await supabase
+      // First, check if user is authenticated and get their profile
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('🔐 Current auth user:', authUser?.id, authUser?.email);
+      
+      if (authUser) {
+        const { data: currentUserProfile, error: profileCheckError } = await supabase
+          .from('user_profiles')
+          .select('id, email, role, is_active')
+          .eq('id', authUser.id)
+          .single();
+        console.log('👤 Current user profile:', currentUserProfile);
+        console.log('👤 Profile check error:', profileCheckError);
+      }
+
+      // Test if is_admin() function works
+      console.log('🧪 Testing is_admin() function...');
+      const { data: isAdminResult, error: isAdminError } = await supabase
+        .rpc('is_admin');
+      console.log('🧪 is_admin() result:', isAdminResult, 'error:', isAdminError);
+
+      // Fetch all user profiles (admins should see all users, not just customers)
+      // Remove the role filter so admins can see all users including other admins and staff
+      console.log('📊 Fetching all user profiles...');
+      
+      // Try the query
+      let profiles: any[] | null = null;
+      let profilesError: any = null;
+      
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
-        .eq('role', 'customer')
         .order('created_at', { ascending: false });
-      console.log('Query result - profiles:', profiles);
-      console.log('Query result - error:', profilesError);
+      
+      profiles = data;
+      profilesError = error;
+      
+      console.log('✅ Query result - profiles:', profiles);
+      console.log('❌ Query result - error:', profilesError);
+      console.log('📈 Profiles count:', profiles?.length || 0);
+      
+      // If we got an error, try to get more details
+      if (profilesError) {
+        console.error('🔍 Detailed error info:', {
+          code: profilesError.code,
+          message: profilesError.message,
+          details: profilesError.details,
+          hint: profilesError.hint,
+        });
+        
+        // If it's a permission error, try RPC function as fallback
+        if (profilesError.code === '42501' || profilesError.message?.includes('permission denied')) {
+          console.warn('⚠️ Permission denied - RLS might be blocking. Trying RPC function...');
+          
+          // Try using the RPC function that bypasses RLS
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('get_all_user_profiles');
+          
+          if (!rpcError && rpcData && Array.isArray(rpcData)) {
+            console.log('✅ RPC function succeeded:', (rpcData as any[]).length, 'profiles');
+            profiles = rpcData as any[];
+            profilesError = null;
+          } else {
+            console.error('❌ RPC function also failed:', rpcError);
+            // Try querying with explicit role check as last resort
+            const { data: altData, error: altError } = await supabase
+              .from('user_profiles')
+              .select('id, email, full_name, phone, role, is_active, created_at, updated_at')
+              .or('role.eq.admin,role.eq.staff,role.eq.customer')
+              .order('created_at', { ascending: false });
+            
+            if (!altError && altData) {
+              console.log('✅ Alternative query succeeded:', altData.length, 'profiles');
+              profiles = altData;
+              profilesError = null;
+            } else {
+              console.error('❌ Alternative query also failed:', altError);
+            }
+          }
+        }
+      }
       
       if (profilesError) {
         console.error('Error fetching user_profiles:', profilesError);
@@ -104,12 +176,18 @@ export function useAdminCustomers() {
         throw profilesError;
       }
 
-      // Filter customers in memory as fallback if needed
-      const customerProfiles = (profiles || []).filter((p: any) => p.role === 'customer');
-      console.log('Filtered customer profiles:', customerProfiles.length, 'out of', profiles?.length || 0);
+      // Use all profiles (admins can see all users)
+      // Optionally filter to only customers if needed, but for admin dashboard, show all
+      const allProfiles = profiles || [];
+      console.log('📋 Total profiles found:', allProfiles.length);
+      console.log('📋 Profile details:', allProfiles.map(p => ({ id: p.id, email: p.email, role: p.role })));
 
-      if (!customerProfiles || customerProfiles.length === 0) {
-        console.warn('No customer profiles found. Total profiles:', profiles?.length || 0);
+      if (!allProfiles || allProfiles.length === 0) {
+        console.warn('⚠️ No profiles found. This could mean:');
+        console.warn('  1. No users have signed up yet');
+        console.warn('  2. RLS policies are blocking the query');
+        console.warn('  3. The user_profiles table is empty');
+        console.warn('  4. The current user is not an admin');
         setCustomers([]);
         setLoading(false);
         return;
@@ -144,8 +222,8 @@ export function useAdminCustomers() {
         });
       }
 
-      // Map profiles to customers with stats (optimized)
-      const customersWithStats: CustomerWithStats[] = customerProfiles.map((profile: any) => {
+      // Map all profiles to customers with stats (optimized)
+      const customersWithStats: CustomerWithStats[] = allProfiles.map((profile: any) => {
         const stats = orderStatsMap.get(profile.email) || { count: 0, total: 0, lastOrder: null };
         
         return {
