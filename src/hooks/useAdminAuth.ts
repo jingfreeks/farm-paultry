@@ -48,14 +48,61 @@ export function useAdminAuth() {
         return;
       }
 
-      // Check demo mode first
+      // Check demo login first (fastest path)
+      const demoLoggedIn = localStorage.getItem('demo_admin_logged_in');
+      if (demoLoggedIn === 'true') {
+        setState({
+          isAuthenticated: true,
+          isAdmin: true,
+          loading: false,
+          userProfile: DEMO_ADMIN,
+          authUser: {
+            id: 'demo-admin',
+            email: 'admin@goldenharvest.com',
+            user_metadata: { full_name: 'Demo Admin' },
+          },
+        });
+        return;
+      }
+
+      // Check demo mode (no Supabase configured)
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
       if (!supabaseUrl || !supabaseAnonKey) {
-        // In demo mode, check localStorage
-        const demoLoggedIn = localStorage.getItem('demo_admin_logged_in');
-        if (demoLoggedIn === 'true') {
+        // No Supabase, no demo login - show login form
+        setState({
+          isAuthenticated: false,
+          isAdmin: false,
+          loading: false,
+          userProfile: null,
+          authUser: null,
+        });
+        return;
+      }
+
+      // Try Supabase auth with timeout
+      const supabase = createClient();
+      
+      // Use Promise.race to add timeout to getUser()
+      let user, getUserError;
+      try {
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Auth check timeout')), 3000)
+        );
+        
+        const getUserResult = await Promise.race([
+          supabase.auth.getUser(),
+          timeoutPromise
+        ]) as { data: { user: any }, error: any };
+        
+        user = getUserResult?.data?.user;
+        getUserError = getUserResult?.error;
+      } catch (timeoutError: any) {
+        // Timeout or other error - fall back to demo check
+        console.warn('Auth check timed out or failed:', timeoutError?.message || timeoutError);
+        const demoLoggedInAfterTimeout = localStorage.getItem('demo_admin_logged_in');
+        if (demoLoggedInAfterTimeout === 'true') {
           setState({
             isAuthenticated: true,
             isAdmin: true,
@@ -78,9 +125,6 @@ export function useAdminAuth() {
         }
         return;
       }
-
-      const supabase = createClient();
-      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
       
       // If there's an error getting user, check demo login as fallback
       if (getUserError) {
@@ -253,30 +297,44 @@ export function useAdminAuth() {
   }, []);
 
   useEffect(() => {
-    // Add timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      setState(prev => {
-        if (prev.loading) {
-          console.warn('Auth check timeout, setting loading to false');
-          return { ...prev, loading: false };
-        }
-        return prev;
-      });
-    }, 10000); // 10 second timeout
+    let isMounted = true;
+    
+    // Add a safety timeout to prevent infinite loading (5 seconds)
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('Auth check safety timeout reached, forcing loading to false');
+        setState(prev => {
+          if (prev.loading) {
+            return { ...prev, loading: false };
+          }
+          return prev;
+        });
+      }
+    }, 5000);
 
-    checkAuth().catch(err => {
-      console.error('Auth check failed:', err);
-      setState({
-        isAuthenticated: false,
-        isAdmin: false,
-        loading: false,
-        userProfile: null,
-        authUser: null,
+    // Run auth check
+    checkAuth()
+      .catch(err => {
+        console.error('Auth check failed:', err);
+        if (isMounted) {
+          setState({
+            isAuthenticated: false,
+            isAdmin: false,
+            loading: false,
+            userProfile: null,
+            authUser: null,
+          });
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          clearTimeout(safetyTimeout);
+        }
       });
-    });
 
     return () => {
-      clearTimeout(timeoutId);
+      isMounted = false;
+      clearTimeout(safetyTimeout);
     };
   }, [checkAuth]);
 
