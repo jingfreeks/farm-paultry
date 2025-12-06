@@ -95,8 +95,10 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
               return;
             } else {
               console.log("Admin profile created successfully");
-              // Profile created, proceed with login
+              // Profile created, wait a moment for state to propagate
+              await new Promise(resolve => setTimeout(resolve, 100));
               onLoginSuccess();
+              setLoading(false);
               return;
             }
           } else {
@@ -110,18 +112,25 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
         }
 
         if (profile?.role === "admin" || profile?.role === "staff") {
+          // Wait a moment for auth state to propagate, then call success callback
+          await new Promise(resolve => setTimeout(resolve, 100));
           onLoginSuccess();
         } else {
           await supabase.auth.signOut();
           setError("You don't have admin access. Contact an administrator.");
           setShowDemoHint(true);
+          setLoading(false);
         }
+      } else {
+        // No user data returned
+        setError("Login failed. Please try again.");
+        setShowDemoHint(true);
+        setLoading(false);
       }
     } catch (err) {
       console.error("Login error:", err);
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
       setShowDemoHint(true);
-    } finally {
       setLoading(false);
     }
   };

@@ -188,12 +188,31 @@ export function useAdminAuth() {
         user_metadata: user.user_metadata || {},
       };
 
-      // Get user profile with error handling
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // Get user profile with error handling and timeout
+      let profile, profileError;
+      try {
+        const profilePromise = supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        const profileTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+        );
+        
+        const profileResult = await Promise.race([
+          profilePromise,
+          profileTimeout
+        ]) as { data: any, error: any };
+        
+        profile = profileResult?.data;
+        profileError = profileResult?.error;
+      } catch (timeoutError: any) {
+        console.warn('Profile fetch timed out:', timeoutError?.message || timeoutError);
+        // On timeout, assume profile doesn't exist or can't be fetched
+        profileError = { code: 'TIMEOUT', message: 'Profile fetch timed out' };
+      }
 
       if (profileError) {
         console.warn('Profile fetch error:', profileError);
