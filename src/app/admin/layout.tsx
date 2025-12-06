@@ -58,13 +58,14 @@ export default function AdminLayout({
   const pathname = usePathname();
   const { isAuthenticated, isAdmin, loading, userProfile, authUser, checkAuth, logout } = useAdminAuth();
 
-  // Loading state
+  // Loading state with timeout fallback
   if (loading) {
     return (
       <div className="min-h-screen bg-bark flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cream border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-cream/70">Loading...</p>
+          <p className="text-cream/50 text-sm mt-2">If this takes too long, please refresh the page</p>
         </div>
       </div>
     );

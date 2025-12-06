@@ -36,8 +36,23 @@ export function useAdminAuth() {
 
   const checkAuth = useCallback(async () => {
     try {
+      // Check if we're in browser environment
+      if (typeof window === 'undefined') {
+        setState({
+          isAuthenticated: false,
+          isAdmin: false,
+          loading: false,
+          userProfile: null,
+          authUser: null,
+        });
+        return;
+      }
+
       // Check demo mode first
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
         // In demo mode, check localStorage
         const demoLoggedIn = localStorage.getItem('demo_admin_logged_in');
         if (demoLoggedIn === 'true') {
@@ -65,7 +80,35 @@ export function useAdminAuth() {
       }
 
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+      
+      // If there's an error getting user, check demo login as fallback
+      if (getUserError) {
+        console.warn('Error getting user:', getUserError);
+        const demoLoggedIn = localStorage.getItem('demo_admin_logged_in');
+        if (demoLoggedIn === 'true') {
+          setState({
+            isAuthenticated: true,
+            isAdmin: true,
+            loading: false,
+            userProfile: DEMO_ADMIN,
+            authUser: {
+              id: 'demo-admin',
+              email: 'admin@goldenharvest.com',
+              user_metadata: { full_name: 'Demo Admin' },
+            },
+          });
+        } else {
+          setState({
+            isAuthenticated: false,
+            isAdmin: false,
+            loading: false,
+            userProfile: null,
+            authUser: null,
+          });
+        }
+        return;
+      }
 
       if (!user) {
         // Also check demo login as fallback
@@ -101,12 +144,25 @@ export function useAdminAuth() {
         user_metadata: user.user_metadata || {},
       };
 
-      // Get user profile
-      const { data: profile } = await supabase
+      // Get user profile with error handling
+      const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .single();
+
+      if (profileError) {
+        console.warn('Profile fetch error:', profileError);
+        // If profile doesn't exist, user is authenticated but not admin
+        setState({
+          isAuthenticated: true,
+          isAdmin: false,
+          loading: false,
+          userProfile: null,
+          authUser: authUserData,
+        });
+        return;
+      }
 
       if (profile) {
         const profileData = profile as UserProfile;
@@ -135,20 +191,31 @@ export function useAdminAuth() {
       }
     } catch (err) {
       console.error('Auth check error:', err);
+      // Always set loading to false on error
       // Fallback to demo check
-      const demoLoggedIn = localStorage.getItem('demo_admin_logged_in');
-      if (demoLoggedIn === 'true') {
-        setState({
-          isAuthenticated: true,
-          isAdmin: true,
-          loading: false,
-          userProfile: DEMO_ADMIN,
-          authUser: {
-            id: 'demo-admin',
-            email: 'admin@goldenharvest.com',
-            user_metadata: { full_name: 'Demo Admin' },
-          },
-        });
+      if (typeof window !== 'undefined') {
+        const demoLoggedIn = localStorage.getItem('demo_admin_logged_in');
+        if (demoLoggedIn === 'true') {
+          setState({
+            isAuthenticated: true,
+            isAdmin: true,
+            loading: false,
+            userProfile: DEMO_ADMIN,
+            authUser: {
+              id: 'demo-admin',
+              email: 'admin@goldenharvest.com',
+              user_metadata: { full_name: 'Demo Admin' },
+            },
+          });
+        } else {
+          setState({
+            isAuthenticated: false,
+            isAdmin: false,
+            loading: false,
+            userProfile: null,
+            authUser: null,
+          });
+        }
       } else {
         setState({
           isAuthenticated: false,
@@ -186,7 +253,31 @@ export function useAdminAuth() {
   }, []);
 
   useEffect(() => {
-    checkAuth();
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setState(prev => {
+        if (prev.loading) {
+          console.warn('Auth check timeout, setting loading to false');
+          return { ...prev, loading: false };
+        }
+        return prev;
+      });
+    }, 10000); // 10 second timeout
+
+    checkAuth().catch(err => {
+      console.error('Auth check failed:', err);
+      setState({
+        isAuthenticated: false,
+        isAdmin: false,
+        loading: false,
+        userProfile: null,
+        authUser: null,
+      });
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [checkAuth]);
 
   return {
