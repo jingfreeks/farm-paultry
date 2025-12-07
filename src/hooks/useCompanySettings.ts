@@ -56,7 +56,12 @@ export function useCompanySettings() {
           throw fetchError;
         }
       } else {
-        setSettings(data);
+        // Normalize the data to ensure null instead of undefined
+        const normalizedData: CompanySettings = {
+          ...data,
+          logo_url: data.logo_url ?? null,
+        };
+        setSettings(normalizedData);
       }
     } catch (err) {
       console.error('Fetch company settings error:', err);
@@ -113,7 +118,13 @@ export function useCompanySettings() {
         throw updateError;
       }
 
-      setSettings(updatedData);
+      // Normalize the data to ensure null instead of undefined
+      const normalizedData: CompanySettings = {
+        ...updatedData,
+        logo_url: updatedData.logo_url ?? null,
+      };
+      
+      setSettings(normalizedData);
       return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update settings';
