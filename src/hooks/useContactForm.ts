@@ -23,9 +23,10 @@ export function useContactForm() {
       
       const supabase = createClient();
       
-      const { error } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { error } = await (supabase
         .from('contact_submissions')
-        .insert([{
+        .insert as any)([{
           name: data.name,
           email: data.email,
           phone: data.phone || null,

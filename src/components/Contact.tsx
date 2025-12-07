@@ -25,9 +25,10 @@ export default function Contact() {
       if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         const supabase = createClient();
         
-        const { error: submitError } = await supabase
+        // Type assertion to work around TypeScript inference issue with Supabase types
+        const { error: submitError } = await (supabase
           .from('contact_submissions')
-          .insert([{
+          .insert as any)([{
             name: formData.name,
             email: formData.email,
             phone: formData.phone || null,
