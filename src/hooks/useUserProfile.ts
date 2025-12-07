@@ -212,9 +212,10 @@ export function useUserProfile() {
 
       // Also update customer record (don't set updated_at manually - trigger handles it)
       if (user.email) {
-        const { error: customerError } = await supabase
+        // Type assertion to work around TypeScript inference issue with Supabase types
+        const { error: customerError } = await (supabase
           .from('customers')
-          .update({
+          .update as any)({
             full_name: updates.full_name || null,
             phone: updates.phone || null,
           })
