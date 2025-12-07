@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import type { UserProfile } from '@/types/database';
+import type { UserProfile, Database } from '@/types/database';
+
+type UserProfileInsert = Database['public']['Tables']['user_profiles']['Insert'];
 
 export interface UserProfileData {
   full_name?: string | null;
@@ -56,14 +58,16 @@ export function useUserProfile() {
         // If profile doesn't exist (PGRST116 = no rows returned), create one
         if (fetchError.code === 'PGRST116' || fetchError.message?.includes('No rows')) {
           try {
+            const profileData: UserProfileInsert = {
+              id: user.id,
+              email: user.email ?? '',
+              full_name: user.user_metadata?.full_name ?? null,
+              role: 'customer',
+            };
+            
             const { data: newProfile, error: createError } = await supabase
               .from('user_profiles')
-              .insert({
-                id: user.id,
-                email: user.email ?? '',
-                full_name: user.user_metadata?.full_name ?? null,
-                role: 'customer',
-              })
+              .insert(profileData)
               .select()
               .single();
 
@@ -153,16 +157,18 @@ export function useUserProfile() {
       // If profile doesn't exist, create it first
       if (checkError && (checkError.code === 'PGRST116' || checkError.message?.includes('No rows'))) {
         console.log('Profile does not exist, creating it first...');
+        const profileData: UserProfileInsert = {
+          id: user.id,
+          email: user.email ?? '',
+          full_name: updates.full_name ?? null,
+          phone: updates.phone ?? null,
+          role: 'customer',
+          is_active: true,
+        };
+        
         const { error: createError } = await supabase
           .from('user_profiles')
-          .insert({
-            id: user.id,
-            email: user.email ?? '',
-            full_name: updates.full_name ?? null,
-            phone: updates.phone ?? null,
-            role: 'customer',
-            is_active: true,
-          });
+          .insert(profileData);
 
         if (createError) {
           console.error('Error creating profile:', createError);

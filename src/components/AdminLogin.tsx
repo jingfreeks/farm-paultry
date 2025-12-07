@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/types/database";
+
+type UserProfileInsert = Database['public']['Tables']['user_profiles']['Insert'];
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -75,15 +78,17 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
             console.log("Profile not found, attempting to create admin profile...");
             
             // Try to create profile with admin role
+            const profileData: UserProfileInsert = {
+              id: data.user.id,
+              email: data.user.email ?? '',
+              full_name: data.user.user_metadata?.full_name ?? null,
+              role: 'admin', // Default to admin for first user
+              is_active: true,
+            };
+            
             const { error: insertError } = await supabase
               .from("user_profiles")
-              .insert({
-                id: data.user.id,
-                email: data.user.email ?? '',
-                full_name: data.user.user_metadata?.full_name ?? null,
-                role: 'admin', // Default to admin for first user
-                is_active: true,
-              });
+              .insert(profileData);
 
             if (insertError) {
               console.error("Failed to create profile:", insertError);

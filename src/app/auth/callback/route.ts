@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import type { Database } from '@/types/database';
+
+type UserProfileInsert = Database['public']['Tables']['user_profiles']['Insert'];
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -21,15 +24,17 @@ export async function GET(request: Request) {
 
         // If profile doesn't exist, create it
         if (profileError && profileError.code === 'PGRST116') {
+          const profileData: UserProfileInsert = {
+            id: data.user.id,
+            email: data.user.email ?? '',
+            full_name: data.user.user_metadata?.full_name ?? null,
+            role: 'customer',
+            is_active: true,
+          };
+          
           const { error: insertError } = await supabase
             .from('user_profiles')
-            .insert({
-              id: data.user.id,
-              email: data.user.email ?? '',
-              full_name: data.user.user_metadata?.full_name ?? null,
-              role: 'customer',
-              is_active: true,
-            });
+            .insert(profileData);
 
           if (insertError) {
             console.warn('Failed to create user profile in callback:', insertError);

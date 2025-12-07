@@ -3,6 +3,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+type UserProfileInsert = Database['public']['Tables']['user_profiles']['Insert'];
 
 interface AuthContextType {
   user: User | null;
@@ -55,15 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // If profile doesn't exist, create it
             if (profileError && profileError.code === 'PGRST116') {
+              const profileData: UserProfileInsert = {
+                id: session.user.id,
+                email: session.user.email ?? '',
+                full_name: session.user.user_metadata?.full_name ?? null,
+                role: 'customer',
+                is_active: true,
+              };
+              
               const { error: insertError } = await supabase
                 .from('user_profiles')
-                .insert({
-                  id: session.user.id,
-                  email: session.user.email ?? '',
-                  full_name: session.user.user_metadata?.full_name ?? null,
-                  role: 'customer',
-                  is_active: true,
-                });
+                .insert(profileData);
 
               if (insertError) {
                 console.warn('Failed to create user profile on auth state change:', insertError);
@@ -126,15 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (profileError && profileError.code === 'PGRST116') {
             console.log('Profile not found, creating user_profile...');
+            const profileData: UserProfileInsert = {
+              id: data.user.id,
+              email: data.user.email ?? email,
+              full_name: fullName ?? data.user.user_metadata?.full_name ?? null,
+              role: 'customer',
+              is_active: true,
+            };
+            
             const { error: insertError } = await supabase
               .from('user_profiles')
-              .insert({
-                id: data.user.id,
-                email: data.user.email ?? email,
-                full_name: fullName ?? data.user.user_metadata?.full_name ?? null,
-                role: 'customer',
-                is_active: true,
-              });
+              .insert(profileData);
 
             if (insertError) {
               console.error('Failed to create user profile:', insertError);
