@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         // Ensure user_profile exists (fallback if trigger failed)
-        if (session?.user && (event === 'SIGNED_IN' || event === 'SIGNED_UP' || event === 'TOKEN_REFRESHED')) {
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
           try {
             const { data: profile, error: profileError } = await supabase
               .from('user_profiles')
