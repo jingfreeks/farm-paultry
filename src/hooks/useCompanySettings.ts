@@ -78,7 +78,15 @@ export function useCompanySettings() {
     try {
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
         // Demo mode
-        setSettings(prev => prev ? { ...prev, ...updates, updated_at: new Date().toISOString() } : null);
+        setSettings(prev => {
+          if (!prev) return null;
+          const updated: CompanySettings = {
+            ...prev,
+            ...updates,
+            updated_at: new Date().toISOString(),
+          };
+          return updated;
+        });
         return { success: true };
       }
 
