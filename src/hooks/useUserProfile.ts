@@ -60,8 +60,8 @@ export function useUserProfile() {
               .from('user_profiles')
               .insert({
                 id: user.id,
-                email: user.email || '',
-                full_name: user.user_metadata?.full_name || null,
+                email: user.email ?? '',
+                full_name: user.user_metadata?.full_name ?? null,
                 role: 'customer',
               })
               .select()
@@ -157,9 +157,9 @@ export function useUserProfile() {
           .from('user_profiles')
           .insert({
             id: user.id,
-            email: user.email || '',
-            full_name: updates.full_name || null,
-            phone: updates.phone || null,
+            email: user.email ?? '',
+            full_name: updates.full_name ?? null,
+            phone: updates.phone ?? null,
             role: 'customer',
             is_active: true,
           });

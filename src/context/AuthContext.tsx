@@ -59,8 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .from('user_profiles')
                 .insert({
                   id: session.user.id,
-                  email: session.user.email || '',
-                  full_name: session.user.user_metadata?.full_name || null,
+                  email: session.user.email ?? '',
+                  full_name: session.user.user_metadata?.full_name ?? null,
                   role: 'customer',
                   is_active: true,
                 });
@@ -130,8 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .from('user_profiles')
               .insert({
                 id: data.user.id,
-                email: data.user.email || email,
-                full_name: fullName || data.user.user_metadata?.full_name || null,
+                email: data.user.email ?? email,
+                full_name: fullName ?? data.user.user_metadata?.full_name ?? null,
                 role: 'customer',
                 is_active: true,
               });

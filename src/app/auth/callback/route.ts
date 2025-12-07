@@ -25,8 +25,8 @@ export async function GET(request: Request) {
             .from('user_profiles')
             .insert({
               id: data.user.id,
-              email: data.user.email || '',
-              full_name: data.user.user_metadata?.full_name || null,
+              email: data.user.email ?? '',
+              full_name: data.user.user_metadata?.full_name ?? null,
               role: 'customer',
               is_active: true,
             });
