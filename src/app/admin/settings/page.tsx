@@ -153,7 +153,7 @@ export default function SettingsPage() {
 
     try {
       const result = await updateSettings({
-        company_name: formData.company_name || null,
+        company_name: formData.company_name.trim() || null,
       });
 
       if (result.success) {

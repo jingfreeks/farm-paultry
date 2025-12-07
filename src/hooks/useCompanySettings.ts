@@ -12,7 +12,7 @@ export interface CompanySettings {
 }
 
 export interface CompanySettingsData {
-  company_name?: string;
+  company_name?: string | null;
   logo_url?: string | null;
 }
 
