@@ -42,20 +42,22 @@ export function useCompanySettings() {
       }
 
       const supabase = createClient();
-      const { data, error: fetchError } = await supabase
+      const result = await supabase
         .from('company_settings')
         .select('*')
         .eq('id', '00000000-0000-0000-0000-000000000000')
         .single();
 
-      if (fetchError) {
+      if (result.error) {
         // If no row exists, use default
-        if (fetchError.code === 'PGRST116' || fetchError.message?.includes('No rows')) {
+        if (result.error.code === 'PGRST116' || result.error.message?.includes('No rows')) {
           setSettings(DEFAULT_SETTINGS);
         } else {
-          throw fetchError;
+          throw result.error;
         }
       } else {
+        // Type assertion to work around TypeScript inference issue with Supabase types
+        const data = result.data as CompanySettings;
         // Normalize the data to ensure null instead of undefined
         const normalizedData: CompanySettings = {
           ...data,
@@ -107,17 +109,20 @@ export function useCompanySettings() {
       }
 
       // Update settings
-      const { data: updatedData, error: updateError } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const result = await (supabase
         .from('company_settings')
-        .update(updates)
+        .update as any)(updates)
         .eq('id', '00000000-0000-0000-0000-000000000000')
         .select()
         .single();
 
-      if (updateError) {
-        throw updateError;
+      if (result.error) {
+        throw result.error;
       }
 
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const updatedData = result.data as CompanySettings;
       // Normalize the data to ensure null instead of undefined
       const normalizedData: CompanySettings = {
         ...updatedData,
