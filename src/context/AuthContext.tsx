@@ -66,9 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 is_active: true,
               };
               
-              const { error: insertError } = await supabase
+              // Type assertion to work around TypeScript inference issue with Supabase types
+              const { error: insertError } = await (supabase
                 .from('user_profiles')
-                .insert(profileData);
+                .insert as any)([profileData]);
 
               if (insertError) {
                 console.warn('Failed to create user profile on auth state change:', insertError);
@@ -139,9 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               is_active: true,
             };
             
-            const { error: insertError } = await supabase
+            // Type assertion to work around TypeScript inference issue with Supabase types
+            const { error: insertError } = await (supabase
               .from('user_profiles')
-              .insert(profileData);
+              .insert as any)([profileData]);
 
             if (insertError) {
               console.error('Failed to create user profile:', insertError);

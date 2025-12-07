@@ -64,11 +64,13 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
 
       if (data.user) {
         // Check if user has admin role
-        const { data: profile, error: profileError } = await supabase
+        const profileResult = await supabase
           .from("user_profiles")
           .select("role")
           .eq("id", data.user.id)
           .single();
+        const profile = profileResult.data as { role: 'admin' | 'staff' | 'customer' } | null;
+        const profileError = profileResult.error;
 
         if (profileError) {
           console.error("Profile error:", profileError);
@@ -86,9 +88,10 @@ export default function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
               is_active: true,
             };
             
-            const { error: insertError } = await supabase
+            // Type assertion to work around TypeScript inference issue with Supabase types
+            const { error: insertError } = await (supabase
               .from("user_profiles")
-              .insert(profileData);
+              .insert as any)([profileData]);
 
             if (insertError) {
               console.error("Failed to create profile:", insertError);

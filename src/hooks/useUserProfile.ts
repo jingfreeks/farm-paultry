@@ -65,9 +65,10 @@ export function useUserProfile() {
               role: 'customer',
             };
             
-            const { data: newProfile, error: createError } = await supabase
+            // Type assertion to work around TypeScript inference issue with Supabase types
+            const { data: newProfile, error: createError } = await (supabase
               .from('user_profiles')
-              .insert(profileData)
+              .insert as any)([profileData])
               .select()
               .single();
 
@@ -166,9 +167,10 @@ export function useUserProfile() {
           is_active: true,
         };
         
-        const { error: createError } = await supabase
+        // Type assertion to work around TypeScript inference issue with Supabase types
+        const { error: createError } = await (supabase
           .from('user_profiles')
-          .insert(profileData);
+          .insert as any)([profileData]);
 
         if (createError) {
           console.error('Error creating profile:', createError);
