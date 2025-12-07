@@ -7,7 +7,7 @@ import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 export default function SettingsPage() {
   const { settings, loading, updateSettings } = useCompanySettings();
-  const { user } = useAdminAuth();
+  const { authUser } = useAdminAuth();
   const [formData, setFormData] = useState({
     company_name: "",
   });
@@ -28,7 +28,7 @@ export default function SettingsPage() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !authUser) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
