@@ -182,9 +182,10 @@ export function useUserProfile() {
       }
 
       // Now update the profile (don't set updated_at manually - trigger handles it)
-      const { data: updatedData, error: profileError } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { data: updatedData, error: profileError } = await (supabase
         .from('user_profiles')
-        .update(updates)
+        .update as any)(updates)
         .eq('id', user.id)
         .select()
         .single();
