@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Product, Order } from '@/types/database';
+import type { Product, Order, Database } from '@/types/database';
+
+type OrderRow = Database['public']['Tables']['orders']['Row'];
+type ProductRow = Database['public']['Tables']['products']['Row'];
 
 // Demo data for when Supabase isn't configured
 const demoProducts: Product[] = [
@@ -58,22 +61,23 @@ export function useAdminDashboard() {
         const supabase = createClient();
 
         // Fetch orders
-        const { data: orders, error: ordersError } = await supabase
+        const ordersResult = await supabase
           .from('orders')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (ordersError) throw ordersError;
+        if (ordersResult.error) throw ordersResult.error;
 
         // Fetch products
-        const { data: products, error: productsError } = await supabase
+        const productsResult = await supabase
           .from('products')
           .select('*');
 
-        if (productsError) throw productsError;
+        if (productsResult.error) throw productsResult.error;
 
-        const ordersList = orders || [];
-        const productsList = products || [];
+        // Type assertions to work around TypeScript inference issues with Supabase types
+        const ordersList = (ordersResult.data as OrderRow[]) || [];
+        const productsList = (productsResult.data as ProductRow[]) || [];
 
         setStats({
           totalOrders: ordersList.length,
@@ -120,13 +124,14 @@ export function useAdminOrders() {
       }
 
       const supabase = createClient();
-      const { data, error: fetchError } = await supabase
+      const ordersResult = await supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-      setOrders(data || demoOrders);
+      if (ordersResult.error) throw ordersResult.error;
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      setOrders((ordersResult.data as OrderRow[]) || demoOrders);
     } catch (err) {
       console.error('Orders error:', err);
       setOrders(demoOrders);
@@ -143,9 +148,10 @@ export function useAdminOrders() {
       }
 
       const supabase = createClient();
-      const { error } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { error } = await (supabase
         .from('orders')
-        .update({ status })
+        .update as any)({ status })
         .eq('id', orderId);
 
       if (error) throw error;
@@ -178,13 +184,14 @@ export function useAdminProducts() {
       }
 
       const supabase = createClient();
-      const { data, error: fetchError } = await supabase
+      const productsResult = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-      setProducts(data || demoProducts);
+      if (productsResult.error) throw productsResult.error;
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      setProducts((productsResult.data as ProductRow[]) || demoProducts);
     } catch (err) {
       console.error('Products error:', err);
       setProducts(demoProducts);
@@ -201,9 +208,10 @@ export function useAdminProducts() {
       }
 
       const supabase = createClient();
-      const { error } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { error } = await (supabase
         .from('products')
-        .update(updates)
+        .update as any)(updates)
         .eq('id', productId);
 
       if (error) throw error;
@@ -232,9 +240,10 @@ export function useAdminProducts() {
       }
 
       const supabase = createClient();
-      const { data, error } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { data, error } = await (supabase
         .from('products')
-        .insert([productData])
+        .insert as any)([productData])
         .select()
         .single();
 

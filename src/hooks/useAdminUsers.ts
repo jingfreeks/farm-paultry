@@ -119,9 +119,10 @@ export function useAdminUsers() {
       // The profile should be created automatically via trigger
       // But we can update the role
       if (authData.user) {
-        const { error: profileError } = await supabase
+        // Type assertion to work around TypeScript inference issue with Supabase types
+        const { error: profileError } = await (supabase
           .from('user_profiles')
-          .update({ 
+          .update as any)({ 
             role: userData.role,
             phone: userData.phone || null,
           })
@@ -150,9 +151,10 @@ export function useAdminUsers() {
       }
 
       const supabase = createClient();
-      const { error } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { error } = await (supabase
         .from('user_profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update as any)({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', userId);
 
       if (error) throw error;
