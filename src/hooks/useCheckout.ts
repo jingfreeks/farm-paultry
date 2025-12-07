@@ -61,9 +61,10 @@ export function useCheckout() {
       const shippingAddress = `${formData.address}, ${formData.city}, ${formData.state} ${formData.zipCode}`;
 
       // Create order
-      const { data: order, error: orderError } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { data: order, error: orderError } = await (supabase
         .from('orders')
-        .insert({
+        .insert as any)({
           customer_email: formData.email,
           customer_name: formData.fullName,
           customer_phone: formData.phone || null,
@@ -99,9 +100,10 @@ export function useCheckout() {
         return { ...baseItem, product_id: null };
       });
 
-      const { error: itemsError } = await supabase
+      // Type assertion to work around TypeScript inference issue with Supabase types
+      const { error: itemsError } = await (supabase
         .from('order_items')
-        .insert(orderItems);
+        .insert as any)(orderItems);
 
       if (itemsError) {
         console.error('Order items error:', itemsError);
