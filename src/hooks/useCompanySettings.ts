@@ -101,9 +101,10 @@ export function useCompanySettings() {
 
       // If settings don't exist, create them
       if (checkError && (checkError.code === 'PGRST116' || checkError.message?.includes('No rows'))) {
-        const { error: createError } = await supabase
+        // Type assertion to work around TypeScript inference issue with Supabase types
+        const { error: createError } = await (supabase
           .from('company_settings')
-          .insert({
+          .insert as any)({
             id: '00000000-0000-0000-0000-000000000000',
             company_name: updates.company_name || DEFAULT_SETTINGS.company_name,
             logo_url: updates.logo_url || null,
