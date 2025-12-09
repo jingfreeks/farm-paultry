@@ -159,9 +159,10 @@ export default function Products() {
       try {
         const supabase = createClient();
         
+        // Only select columns we need for better performance
         let query = supabase
           .from('products')
-          .select('*')
+          .select('id, name, description, price, unit, category, image_url, emoji, badge, badge_color, stock, is_available, created_at, updated_at')
           .eq('is_available', true)
           .order('created_at', { ascending: false });
         

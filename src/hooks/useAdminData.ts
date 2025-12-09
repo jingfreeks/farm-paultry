@@ -60,19 +60,19 @@ export function useAdminDashboard() {
 
         const supabase = createClient();
 
-        // Fetch orders
-        const ordersResult = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
+        // Fetch orders and products in parallel for better performance
+        // Only select columns we actually need
+        const [ordersResult, productsResult] = await Promise.all([
+          supabase
+            .from('orders')
+            .select('id, customer_name, customer_email, total_amount, status, created_at')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('products')
+            .select('id, stock')
+        ]);
 
         if (ordersResult.error) throw ordersResult.error;
-
-        // Fetch products
-        const productsResult = await supabase
-          .from('products')
-          .select('*');
-
         if (productsResult.error) throw productsResult.error;
 
         // Type assertions to work around TypeScript inference issues with Supabase types
@@ -124,9 +124,10 @@ export function useAdminOrders() {
       }
 
       const supabase = createClient();
+      // Only select columns we need for better performance
       const ordersResult = await supabase
         .from('orders')
-        .select('*')
+        .select('id, customer_id, customer_email, customer_name, customer_phone, shipping_address, total_amount, status, notes, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (ordersResult.error) throw ordersResult.error;
@@ -184,9 +185,10 @@ export function useAdminProducts() {
       }
 
       const supabase = createClient();
+      // Only select columns we need for better performance
       const productsResult = await supabase
         .from('products')
-        .select('*')
+        .select('id, name, description, price, unit, category, image_url, emoji, badge, badge_color, stock, is_available, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (productsResult.error) throw productsResult.error;
