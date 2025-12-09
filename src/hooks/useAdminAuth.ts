@@ -87,17 +87,23 @@ export function useAdminAuth() {
       // Use Promise.race to add timeout to getUser()
       let user, getUserError;
       try {
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Auth check timeout')), 3000)
+        const getUserPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise<{ data: { user: null }, error: { message: string } }>((resolve) => 
+          setTimeout(() => resolve({ data: { user: null }, error: { message: 'Auth check timeout' } }), 2000)
         );
         
         const getUserResult = await Promise.race([
-          supabase.auth.getUser(),
+          getUserPromise,
           timeoutPromise
-        ]) as { data: { user: any }, error: any };
+        ]);
         
         user = getUserResult?.data?.user;
         getUserError = getUserResult?.error;
+        
+        // If timeout occurred (user is null and we have an error), treat as timeout
+        if (!user && getUserError?.message === 'Auth check timeout') {
+          throw new Error('Auth check timeout');
+        }
       } catch (timeoutError: any) {
         // Timeout or other error - fall back to demo check
         console.warn('Auth check timed out or failed:', timeoutError?.message || timeoutError);
@@ -197,19 +203,24 @@ export function useAdminAuth() {
           .eq('id', user.id)
           .single();
         
-        const profileTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+        const profileTimeout = new Promise<{ data: null, error: { code: string, message: string } }>((resolve) => 
+          setTimeout(() => resolve({ data: null, error: { code: 'TIMEOUT', message: 'Profile fetch timeout' } }), 2000)
         );
         
         const profileResult = await Promise.race([
           profilePromise,
           profileTimeout
-        ]) as { data: any, error: any };
+        ]);
         
         profile = profileResult?.data;
         profileError = profileResult?.error;
+        
+        // If timeout occurred, treat as timeout
+        if (profileError?.code === 'TIMEOUT') {
+          console.warn('Profile fetch timed out');
+        }
       } catch (timeoutError: any) {
-        console.warn('Profile fetch timed out:', timeoutError?.message || timeoutError);
+        console.warn('Profile fetch error:', timeoutError?.message || timeoutError);
         // On timeout, assume profile doesn't exist or can't be fetched
         profileError = { code: 'TIMEOUT', message: 'Profile fetch timed out' };
       }
@@ -318,18 +329,34 @@ export function useAdminAuth() {
   useEffect(() => {
     let isMounted = true;
     
-    // Add a safety timeout to prevent infinite loading (5 seconds)
+    // Add a safety timeout to prevent infinite loading (3 seconds)
     const safetyTimeout = setTimeout(() => {
       if (isMounted) {
         console.warn('Auth check safety timeout reached, forcing loading to false');
-        setState(prev => {
-          if (prev.loading) {
-            return { ...prev, loading: false };
-          }
-          return prev;
-        });
+        // Check for demo login as fallback
+        const demoLoggedIn = typeof window !== 'undefined' ? localStorage.getItem('demo_admin_logged_in') : null;
+        if (demoLoggedIn === 'true') {
+          setState({
+            isAuthenticated: true,
+            isAdmin: true,
+            loading: false,
+            userProfile: DEMO_ADMIN,
+            authUser: {
+              id: 'demo-admin',
+              email: 'admin@goldenharvest.com',
+              user_metadata: { full_name: 'Demo Admin' },
+            },
+          });
+        } else {
+          setState(prev => {
+            if (prev.loading) {
+              return { ...prev, loading: false };
+            }
+            return prev;
+          });
+        }
       }
-    }, 5000);
+    }, 3000);
 
     // Run auth check
     checkAuth()
