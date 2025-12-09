@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import Image from "next/image";
 
 const footerLinks = {
   products: [
@@ -22,6 +26,12 @@ const footerLinks = {
 };
 
 export default function Footer() {
+  const { settings } = useCompanySettings();
+  
+  // Get company name and logo from settings, with fallback
+  const companyName = settings?.company_name || 'Golden Harvest';
+  const logoUrl = settings?.logo_url;
+  
   return (
     <footer className="bg-charcoal text-cream">
       {/* Main Footer */}
@@ -30,13 +40,26 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-olive rounded-full flex items-center justify-center">
-                <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8.5 2 6 4.5 6 7c0 1.5.5 2.5 1.5 3.5-1 .5-2 1.5-2.5 3-.5 1.5 0 3 1 4 1 1 2.5 1.5 4 1.5h4c1.5 0 3-.5 4-1.5s1.5-2.5 1-4c-.5-1.5-1.5-2.5-2.5-3 1-1 1.5-2 1.5-3.5 0-2.5-2.5-5-6-5zm-2 6c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm4 0c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm-2 4l-1 3h-2l2-4h1zm0 0l1 3h2l-2-4h-1z"/>
-                </svg>
-              </div>
+              {logoUrl ? (
+                <div className="w-12 h-12 relative flex items-center justify-center">
+                  <Image
+                    src={logoUrl}
+                    alt={companyName}
+                    width={48}
+                    height={48}
+                    className="object-contain rounded-full"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <div className="w-12 h-12 bg-olive rounded-full flex items-center justify-center">
+                  <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.5 2 6 4.5 6 7c0 1.5.5 2.5 1.5 3.5-1 .5-2 1.5-2.5 3-.5 1.5 0 3 1 4 1 1 2.5 1.5 4 1.5h4c1.5 0 3-.5 4-1.5s1.5-2.5 1-4c-.5-1.5-1.5-2.5-2.5-3 1-1 1.5-2 1.5-3.5 0-2.5-2.5-5-6-5zm-2 6c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm4 0c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm-2 4l-1 3h-2l2-4h1zm0 0l1 3h2l-2-4h-1z"/>
+                  </svg>
+                </div>
+              )}
               <div>
-                <h2 className="font-serif text-xl font-bold text-cream">Golden Harvest</h2>
+                <h2 className="font-serif text-xl font-bold text-cream">{companyName}</h2>
                 <p className="text-xs text-cream/60 tracking-widest uppercase">Farm & Poultry</p>
               </div>
             </div>
@@ -111,7 +134,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-cream/50 text-sm">
-              © {new Date().getFullYear()} Golden Harvest Farm. All rights reserved.
+              © {new Date().getFullYear()} {companyName}. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
               <Link href="#" className="text-cream/50 text-sm hover:text-cream transition-colors">

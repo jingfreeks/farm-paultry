@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import Image from "next/image";
 
 interface HeaderProps {
   mobileMenuOpen: boolean;
@@ -21,8 +23,13 @@ const navigation = [
 export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }: HeaderProps) {
   const { toggleCart, totalItems } = useCart();
   const { user, loading, signOut } = useAuth();
+  const { settings } = useCompanySettings();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Get company name and logo from settings, with fallback
+  const companyName = settings?.company_name || 'Golden Harvest';
+  const logoUrl = settings?.logo_url;
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -54,21 +61,34 @@ export default function Header({ mobileMenuOpen, setMobileMenuOpen, onOpenAuth }
       <nav className="mx-auto max-w-7xl px-6 lg:px-8" aria-label="Top">
         <div className="flex w-full items-center justify-between py-4">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-olive rounded-full flex items-center justify-center">
-              <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C8.5 2 6 4.5 6 7c0 1.5.5 2.5 1.5 3.5-1 .5-2 1.5-2.5 3-.5 1.5 0 3 1 4 1 1 2.5 1.5 4 1.5h4c1.5 0 3-.5 4-1.5s1.5-2.5 1-4c-.5-1.5-1.5-2.5-2.5-3 1-1 1.5-2 1.5-3.5 0-2.5-2.5-5-6-5zm-2 6c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm4 0c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm-2 4l-1 3h-2l2-4h1zm0 0l1 3h2l-2-4h-1z"/>
-              </svg>
-            </div>
+          <Link href="/" className="flex items-center gap-3">
+            {logoUrl ? (
+              <div className="w-12 h-12 relative flex items-center justify-center">
+                <Image
+                  src={logoUrl}
+                  alt={companyName}
+                  width={48}
+                  height={48}
+                  className="object-contain rounded-full"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              <div className="w-12 h-12 bg-olive rounded-full flex items-center justify-center">
+                <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8.5 2 6 4.5 6 7c0 1.5.5 2.5 1.5 3.5-1 .5-2 1.5-2.5 3-.5 1.5 0 3 1 4 1 1 2.5 1.5 4 1.5h4c1.5 0 3-.5 4-1.5s1.5-2.5 1-4c-.5-1.5-1.5-2.5-2.5-3 1-1 1.5-2 1.5-3.5 0-2.5-2.5-5-6-5zm-2 6c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm4 0c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1zm-2 4l-1 3h-2l2-4h1zm0 0l1 3h2l-2-4h-1z"/>
+                </svg>
+              </div>
+            )}
             <div>
               <h1 className="font-serif text-xl font-bold text-bark tracking-tight">
-                Golden Harvest
+                {companyName}
               </h1>
               <p className="text-xs text-olive font-medium tracking-widest uppercase">
                 Farm & Poultry
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
